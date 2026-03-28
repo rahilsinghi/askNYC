@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { AgentState, DataCard as DataCardType, ToolCall, SessionSummary } from '@/lib/types'
 import Waveform from './Waveform'
@@ -166,25 +167,7 @@ export default function IntelligenceBrief({
 
         {/* QR Section */}
         {!remoteConnected && remoteFullUrl ? (
-          <div className="pt-4 border-t border-white/5 space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-[9px] font-bold tracking-[0.2em] text-white/30 uppercase">Grid_Bridge</p>
-              <div className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[8px] font-bold animate-pulse">
-                PENDING_SYNC
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="p-2 bg-white rounded-lg opacity-80 hover:opacity-100 transition-opacity">
-                <QRCodeSVG value={remoteFullUrl} size={56} />
-              </div>
-              <div className="flex-1">
-                <p className="text-[9px] text-white/30 leading-relaxed mb-2 uppercase tracking-tighter">
-                  Bridge node for mobile telemetry.
-                </p>
-                <code className="text-[8px] text-cyan-glow block font-bold">SHA: {sessionId?.slice(0, 12)}</code>
-              </div>
-            </div>
-          </div>
+          <QrBridge url={remoteFullUrl} sessionId={sessionId} />
         ) : (
           <div className="pt-4 border-t border-white/5 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -195,6 +178,45 @@ export default function IntelligenceBrief({
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function QrBridge({ url, sessionId }: { url: string; sessionId: string | null }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="pt-4 border-t border-white/5 space-y-3">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between group"
+      >
+        <p className="text-[9px] font-bold tracking-[0.2em] text-white/30 uppercase group-hover:text-white/50 transition-colors">
+          Grid_Bridge
+        </p>
+        <div className="flex items-center gap-2">
+          <span className="text-[8px] font-bold text-white/20 group-hover:text-white/40 transition-colors">
+            {open ? 'HIDE' : 'SHOW'}
+          </span>
+          <div className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[8px] font-bold animate-pulse">
+            PENDING_SYNC
+          </div>
+        </div>
+      </button>
+
+      {open && (
+        <div className="flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="p-2 bg-white rounded-lg opacity-80 hover:opacity-100 transition-opacity">
+            <QRCodeSVG value={url} size={56} />
+          </div>
+          <div className="flex-1">
+            <p className="text-[9px] text-white/30 leading-relaxed mb-2 uppercase tracking-tighter">
+              Bridge node for mobile telemetry.
+            </p>
+            <code className="text-[8px] text-cyan-glow block font-bold">SHA: {sessionId?.slice(0, 12)}</code>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
