@@ -1,0 +1,28 @@
+# Dependencies
+backend/venv/
+frontend/node_modules/
+
+# Build output
+frontend/.next/
+
+# Environment files (contain secrets)
+backend/.env
+frontend/.env
+frontend/.env.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
