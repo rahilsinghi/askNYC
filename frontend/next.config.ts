@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   // Allow Mapbox worker
   webpack: (config) => {
     config.resolve.alias = {

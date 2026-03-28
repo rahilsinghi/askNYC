@@ -1,24 +1,27 @@
 # Bharath — Live Camera + Voice + Deployment Tasks
 
 > Updated: 2026-03-27
-> Status: Ready to start
-> Branch: `feat/live-camera` (remote page work), deployment config goes to `main`
+> Status: **Tasks 1 & 2 DONE** — Cloud Run deployed. Start from Task 3.
+> Branch: work directly on `main`
+
+---
+
+## Live URLs
+
+| Service | URL |
+|---------|-----|
+| **Backend** | `https://asknyc-backend-901435891859.us-central1.run.app` |
+| **Frontend** | `https://asknyc-frontend-901435891859.us-central1.run.app` |
+| **Backend Health** | `https://asknyc-backend-901435891859.us-central1.run.app/health` |
+| **Dashboard** | `https://asknyc-frontend-901435891859.us-central1.run.app/dashboard` |
+| **Remote (phone)** | `https://asknyc-frontend-901435891859.us-central1.run.app/remote` |
 
 ---
 
 ## Prerequisites
 
-### GCP Access
-Ask Rahil to add your Google account as **Editor** on the existing project:
+### Local Setup (if needed)
 ```bash
-gcloud projects add-iam-policy-binding nth-segment-491623-d2 \
-  --member="user:YOUR_EMAIL@gmail.com" \
-  --role="roles/editor"
-```
-
-### Local Setup
-```bash
-# Clone and install
 git clone https://github.com/rahilsinghi/askNYC.git
 cd askNYC
 
@@ -30,158 +33,67 @@ cp .env.example .env  # fill in keys (get from Rahil)
 
 # Frontend
 cd ../frontend
-pnpm install
+npm install
 cp .env.example .env.local  # NEXT_PUBLIC_WS_URL=ws://localhost:8000
 ```
 
-### Required API Keys (get from Rahil)
-- `GOOGLE_GEMINI_API_KEY` — Gemini API key
-- `GOOGLE_MAPS_API_KEY` — Google Maps Geocoding
-- `NEXT_PUBLIC_MAPBOX_TOKEN` — Mapbox for the map
-
 ---
 
-## Task 1: Deploy Backend to Cloud Run
+## ~~Task 1: Deploy Backend to Cloud Run~~ — DONE
 
-### 1a. Build and push Docker image
+Deployed by Rahil on 2026-03-27. Backend is live at:
+```
+https://asknyc-backend-901435891859.us-central1.run.app
+```
+
+**Configuration:**
+- Region: `us-central1`
+- Image: `us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/backend:latest`
+- Memory: 512Mi, CPU: 1
+- Session affinity enabled
+- Env vars: Gemini API key, Maps API key, Socrata token, Vertex AI enabled
+- CORS: allows frontend Cloud Run URL + localhost
+
+**Health check confirmed:**
+```json
+{"status":"ok","service":"ask-nyc","version":"2.0.0","gemini_model":"gemini-2.5-flash-native-audio-latest","datasets":7,"vertex_ai":"TRUE","active_sessions":0}
+```
+
+### To redeploy (if you make backend changes):
 ```bash
 cd backend
-
-# Authenticate
-gcloud auth login
-gcloud config set project nth-segment-491623-d2
-gcloud auth configure-docker us-central1-docker.pkg.dev
-
-# Create Artifact Registry repo (one-time)
-gcloud artifacts repositories create asknyc \
-  --repository-format=docker \
-  --location=us-central1
-
-# Build and push
-docker build -t us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/backend:latest .
+docker build --platform linux/amd64 -t us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/backend:latest .
 docker push us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/backend:latest
-```
-
-### 1b. Deploy to Cloud Run
-```bash
-gcloud run deploy asknyc-backend \
-  --image us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/backend:latest \
-  --region us-central1 \
-  --platform managed \
-  --allow-unauthenticated \
-  --port 8080 \
-  --memory 512Mi \
-  --timeout 300 \
-  --session-affinity \
-  --min-instances 1 \
-  --set-env-vars "GOOGLE_GENAI_USE_VERTEXAI=TRUE,GOOGLE_CLOUD_PROJECT=nth-segment-491623-d2,GOOGLE_CLOUD_LOCATION=us-central1,CORS_ORIGINS=*"
-```
-
-**Important flags:**
-- `--session-affinity` — WebSocket connections must stick to the same instance
-- `--min-instances 1` — avoid cold starts during demo
-- `--timeout 300` — WebSocket connections can last up to 5 min
-- Port is 8080 (set in Dockerfile via `$PORT` env var)
-
-### 1c. Set secrets
-```bash
-# Set API keys as env vars (or use Secret Manager)
-gcloud run services update asknyc-backend \
-  --region us-central1 \
-  --update-env-vars "GOOGLE_API_KEY=<key>,GOOGLE_MAPS_API_KEY=<key>"
-```
-
-### 1d. Verify
-```bash
-# Get the URL
-BACKEND_URL=$(gcloud run services describe asknyc-backend --region us-central1 --format 'value(status.url)')
-echo $BACKEND_URL
-
-# Test health endpoint
-curl $BACKEND_URL/health
-
-# Test WebSocket (should connect and get session_ready)
-# Use browser DevTools or wscat:
-# npx wscat -c wss://<backend-url>/ws/dashboard
+gcloud run deploy asknyc-backend --image us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/backend:latest --region us-central1
 ```
 
 ---
 
-## Task 2: Deploy Frontend to Cloud Run
+## ~~Task 2: Deploy Frontend to Cloud Run~~ — DONE
 
-### 2a. Create frontend Dockerfile
-Create `frontend/Dockerfile`:
-```dockerfile
-FROM node:20-alpine AS builder
-WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@latest --activate
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
-COPY . .
-ARG NEXT_PUBLIC_WS_URL
-ARG NEXT_PUBLIC_MAPBOX_TOKEN
-ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
-ENV NEXT_PUBLIC_MAPBOX_TOKEN=$NEXT_PUBLIC_MAPBOX_TOKEN
-RUN pnpm build
-
-FROM node:20-alpine AS runner
-WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@latest --activate
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
-ENV PORT=8080
-EXPOSE 8080
-CMD ["node", "server.js"]
+Deployed by Rahil on 2026-03-27. Frontend is live at:
+```
+https://asknyc-frontend-901435891859.us-central1.run.app
 ```
 
-**Note:** Add `output: 'standalone'` to `next.config.ts` for the standalone build:
-```typescript
-const nextConfig = {
-  output: 'standalone',
-  // ... existing config
-}
-```
+**Configuration:**
+- Dockerfile created at `frontend/Dockerfile` (uses npm, standalone Next.js output)
+- `next.config.ts` updated with `output: 'standalone'`
+- Built with `NEXT_PUBLIC_WS_URL=wss://asknyc-backend-901435891859.us-central1.run.app`
+- Built with Mapbox token baked in
+- Memory: 256Mi, CPU: 1
+- Backend CORS updated to allow this frontend URL
 
-### 2b. Build and deploy
+### To redeploy (if you make frontend changes):
 ```bash
 cd frontend
-
-# Get your backend URL first
-BACKEND_URL=$(gcloud run services describe asknyc-backend --region us-central1 --format 'value(status.url)')
-# Convert https:// to wss:// for WebSocket
-WS_URL=$(echo $BACKEND_URL | sed 's/https/wss/')
-
-docker build \
-  --build-arg NEXT_PUBLIC_WS_URL=$WS_URL \
+docker build --platform linux/amd64 \
+  --build-arg NEXT_PUBLIC_WS_URL=wss://asknyc-backend-901435891859.us-central1.run.app \
   --build-arg NEXT_PUBLIC_MAPBOX_TOKEN=<your-mapbox-token> \
   -t us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/frontend:latest .
-
 docker push us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/frontend:latest
-
-gcloud run deploy asknyc-frontend \
-  --image us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/frontend:latest \
-  --region us-central1 \
-  --platform managed \
-  --allow-unauthenticated \
-  --port 8080 \
-  --memory 256Mi
+gcloud run deploy asknyc-frontend --image us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/frontend:latest --region us-central1
 ```
-
-### 2c. Update CORS
-After frontend deploys, update backend CORS with the frontend URL:
-```bash
-FRONTEND_URL=$(gcloud run services describe asknyc-frontend --region us-central1 --format 'value(status.url)')
-gcloud run services update asknyc-backend \
-  --region us-central1 \
-  --update-env-vars "CORS_ORIGINS=$FRONTEND_URL"
-```
-
-### 2d. Verify end-to-end
-1. Open `$FRONTEND_URL/dashboard` in Chrome
-2. Should show "BACKEND CONNECTED" with green dot
-3. Upload an image, type "can I eat here", click ASK
-4. Should see tool badges + data cards + audio response
 
 ---
 

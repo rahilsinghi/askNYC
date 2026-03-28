@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, MessageSquare, Volume2, ArrowUpRight, Cpu, Network } from 'lucide-react';
+import { MessageSquare, Volume2, ArrowUpRight, Cpu, Network } from 'lucide-react';
 
 export default function AnswerPanel() {
     return (
@@ -10,7 +10,7 @@ export default function AnswerPanel() {
             initial={{ x: 450, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 1.5, duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed right-8 top-8 bottom-8 w-[420px] bg-slate-950/40 backdrop-blur-2xl rounded-[2.5rem] z-50 overflow-hidden flex flex-col shadow-[0_30px_100px_rgba(0,0,0,0.8)] border border-white/10"
+            className="fixed right-8 top-8 bottom-8 w-[420px] bg-slate-950/40 backdrop-blur-2xl rounded-[2.5rem] z-50 overflow-hidden flex flex-col shadow-[0_30px_100px_rgba(0,0,0,0.8)] border border-white/10 font-mono"
         >
             <div className="p-10 flex flex-col h-full">
                 <div className="flex items-center justify-between mb-10">
@@ -50,7 +50,7 @@ export default function AnswerPanel() {
                             ].map((spot, i) => (
                                 <div key={i} className="group cursor-pointer">
                                     <div className="flex items-center justify-between mb-2">
-                                        <h4 className="font-bold text-white text-lg group-hover:text-white/80 transition-colors">{spot.name}</h4>
+                                        <h4 className="font-bold text-white text-lg group-hover:text-white/80 transition-colors uppercase">{spot.name}</h4>
                                         <ArrowUpRight className="w-4 h-4 text-white/20 group-hover:text-white/60 transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                                     </div>
                                     <p className="text-sm leading-relaxed text-white/50 mb-2">

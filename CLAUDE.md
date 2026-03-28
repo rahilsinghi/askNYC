@@ -100,12 +100,14 @@ ask-nyc/
 │   │   │   └── Waveform.tsx
 │   │   ├── remote/
 │   │   │   └── MicButton.tsx
-│   │   └── archive/
-│   │       └── SessionCard.tsx
+│   │   ├── archive/
+│   │   │   └── SessionCard.tsx
+│   │   └── SettingsPanel.tsx      ← demo toggle, volume, mute
 │   ├── hooks/
 │   │   ├── useWebSocket.ts      ← WS connection + reconnect
 │   │   ├── useAudioPlayer.ts    ← plays agent audio chunks
-│   │   └── useCameraCapture.ts  ← getUserMedia + frame capture
+│   │   ├── useCameraCapture.ts  ← getUserMedia + frame capture
+│   │   └── useSettings.ts       ← settings state (demo, volume, mute)
 │   ├── lib/
 │   │   ├── types.ts             ← all shared TypeScript types
 │   │   └── constants.ts         ← WS_URL, colors, dataset IDs
@@ -124,6 +126,7 @@ ask-nyc/
 │   │   └── session_service.py   ← in-memory session store
 │   └── models/
 │       └── schemas.py           ← Pydantic models
+├── cloudbuild.yaml              ← CI/CD: auto-deploy on push to main
 └── docs/
     ├── STITCH_PROMPT.md         ← design system + screen specs
     └── DATA_SOURCES.md          ← Socrata API reference
@@ -283,7 +286,7 @@ GOOGLE_CLOUD_PROJECT=        # GCP project ID (for Vertex AI)
 GOOGLE_CLOUD_LOCATION=       # GCP region (for Vertex AI)
 GOOGLE_MAPS_API_KEY=         # Google Maps Geocoding API
 SOCRATA_APP_TOKEN=           # Optional: increases rate limits
-CORS_ORIGINS=http://localhost:3000,https://your-frontend.vercel.app
+CORS_ORIGINS=http://localhost:3000,https://asknyc-frontend-901435891859.us-central1.run.app
 
 # Frontend
 NEXT_PUBLIC_WS_URL=ws://localhost:8000
@@ -354,7 +357,9 @@ Run these queries manually before the demo. Know the answers. The "surprise" is 
 7. Phone remote page (remote/page.tsx)
 8. Map pins (MiniMap.tsx) — nice to have, do last
 
-**Hackathon minimum viable demo:** Items 1–6 working. The rest is polish.
+9. CI/CD pipeline (cloudbuild.yaml) — auto-deploys on push to main
+
+**Hackathon minimum viable demo:** Items 1–6 working. The rest is polish. CI/CD (item 9) is set up and operational.
 
 ---
 

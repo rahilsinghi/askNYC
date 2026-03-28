@@ -2,15 +2,19 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Compass, BarChart3, Clock, Settings, Zap, Shield, Target } from 'lucide-react';
+import { Compass, BarChart3, Clock, Settings, Shield, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export default function Sidebar() {
+interface SidebarProps {
+    onSettingsClick?: () => void
+}
+
+export default function Sidebar({ onSettingsClick }: SidebarProps) {
     const items = [
-        { icon: <Target className="w-5 h-5" />, label: 'Objective', active: true },
-        { icon: <Compass className="w-5 h-5" />, label: 'Navigate' },
-        { icon: <BarChart3 className="w-5 h-5" />, label: 'Insights' },
-        { icon: <Shield className="w-5 h-5" />, label: 'Security' },
+        { icon: <Compass className="w-5 h-5" />, label: 'Explore', active: true },
+        { icon: <BarChart3 className="w-5 h-5" />, label: 'Analysis' },
+        { icon: <Clock className="w-5 h-5" />, label: 'History' },
+        { icon: <Settings className="w-5 h-5" />, label: 'Settings', onClick: onSettingsClick },
     ];
 
     return (
@@ -25,6 +29,7 @@ export default function Sidebar() {
                 {items.map((item, i) => (
                     <button
                         key={i}
+                        onClick={item.onClick}
                         className={cn(
                             "group transition-all relative flex flex-col items-center gap-2",
                             item.active ? "text-white" : "text-white/30 hover:text-white/60"
@@ -49,7 +54,7 @@ export default function Sidebar() {
 
             <div className="mt-auto">
                 <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-white/20 hover:text-white/50 transition-colors cursor-pointer hover:bg-white/5">
-                    <Settings className="w-4 h-4" />
+                    <Shield className="w-4 h-4" />
                 </div>
             </div>
         </aside>

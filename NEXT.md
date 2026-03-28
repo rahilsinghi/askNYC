@@ -1,7 +1,7 @@
 # Ask NYC — Roadmap & Next Steps
 
 > Everything left to build, organized by priority for the March 27-28 hackathon.
-> Updated: March 26, 2026
+> Updated: March 27, 2026
 
 ---
 
@@ -53,33 +53,15 @@ What needs to happen:
 
 ## Priority 2 — Demo Polish (High impact on judging scores)
 
-### 2.1 Mapbox GL JS Integration
+### 2.1 Mapbox GL JS Integration — DONE
 
-**Status:** Package installed (`mapbox-gl` in package.json), component is CSS-only placeholder
+**Status:** Complete. MiniMap component has full Mapbox integration with pin rendering.
 **Files:** `frontend/components/dashboard/MiniMap.tsx`
-**Blocked by:** `NEXT_PUBLIC_MAPBOX_TOKEN` in `frontend/.env.local`
 
-What needs to happen:
-- Sign up at mapbox.com → copy default public token → add to `.env.local`
-- Replace CSS-only map in `MiniMap.tsx` with real Mapbox GL JS instance
-- Handle `map_event` WebSocket messages:
-  - `pin` → add marker at lat/lng with source-colored icon
-  - `zoom` → fly to coordinates
-  - `circle` → draw radius circle overlay
-- Color-code pins by data source (green=health, amber=complaints, blue=permits, red=NYPD)
-- Add smooth fly-to animation when new pins arrive
-- Current MiniMap already has the legend UI — just needs real map underneath
+### 2.2 Tool Badge → Data Card Animation Pipeline — DONE
 
-### 2.2 Tool Badge → Data Card Animation Pipeline
-
-**Status:** Individual pieces work (demo mode proves it), needs real-data wiring
+**Status:** Complete. Wired to real WebSocket events, animations working end-to-end.
 **Files:** `frontend/app/dashboard/page.tsx`, `frontend/components/dashboard/DataCard.tsx`
-
-What needs to happen:
-- Verify `tool_call` → `data_card` event sequence renders correctly with live Gemini data
-- Test staggered card entry animation with real timing (not demo's fixed 800ms intervals)
-- Verify badge shimmer animation triggers on `tool_call` pending → complete transition
-- Test with all 5 data source categories rendering simultaneously
 
 ### 2.3 Detection Overlay
 
@@ -155,47 +137,28 @@ What needs to happen:
 
 ---
 
-## Priority 4 — Deployment & Infrastructure
+## Priority 4 — Deployment & Infrastructure — DONE (includes CI/CD auto-deploy)
 
-### 4.1 Google Cloud Run Deployment
+### 4.1 Google Cloud Run Deployment — DONE
 
-**Status:** Dockerfile exists, not tested
-**Files:** `backend/Dockerfile`, `dev.sh`
+**Status:** Backend + Frontend both deployed to Cloud Run on 2026-03-27.
 
-Steps:
-```bash
-# Build
-gcloud builds submit --tag gcr.io/PROJECT_ID/ask-nyc-backend
+| Service | URL |
+|---------|-----|
+| Backend | `https://asknyc-backend-901435891859.us-central1.run.app` |
+| Frontend | `https://asknyc-frontend-901435891859.us-central1.run.app` |
 
-# Deploy
-gcloud run deploy ask-nyc-backend \
-  --image gcr.io/PROJECT_ID/ask-nyc-backend \
-  --platform managed --region us-east1 \
-  --allow-unauthenticated \
-  --set-env-vars GOOGLE_API_KEY=xxx,GOOGLE_MAPS_API_KEY=yyy,CORS_ORIGINS=https://ask-nyc.vercel.app
-```
+- Artifact Registry repo: `us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/`
+- Backend: Vertex AI enabled, all API keys set, CORS configured, session affinity
+- Frontend: standalone Next.js build, WS URL + Mapbox token baked in
 
-Considerations:
-- Cloud Run scales to zero — hit `/health` before demo to warm up
-- WebSocket support: Cloud Run supports WS but has a 15-minute idle timeout
-- Need to update `NEXT_PUBLIC_WS_URL` in frontend to point to Cloud Run URL
-- HTTPS provided automatically by Cloud Run — needed for phone camera access
+### 4.2 Frontend Deployment — DONE
 
-### 4.2 Frontend Deployment (Vercel)
+Deployed to Cloud Run (not Vercel) for simplicity. Both services in same region.
 
-**Steps:**
-- Push to GitHub
-- Connect repo to Vercel
-- Set environment variables: `NEXT_PUBLIC_WS_URL`, `NEXT_PUBLIC_MAPBOX_TOKEN`
-- Verify WebSocket connection to Cloud Run backend
+### 4.3 HTTPS for Phone Camera — DONE
 
-### 4.3 HTTPS for Phone Camera
-
-**Status:** `getUserMedia()` requires HTTPS on non-localhost
-**Options:**
-- ngrok tunnel during local development: `ngrok http 3000`
-- Cloud Run (automatic HTTPS) for demo day
-- Self-signed cert with mkcert for local network testing
+Cloud Run provides HTTPS automatically. Phone camera access works on deployed URLs.
 
 ---
 
@@ -306,9 +269,10 @@ Referenced in CLAUDE.md project structure but doesn't exist. Should contain:
 - [ ] Run through all 3 demo scenarios with real API calls
 
 ### Day 1 Evening (March 27, 6pm-10pm)
-- [ ] Deploy backend to Google Cloud Run
-- [ ] Deploy frontend to Vercel
-- [ ] Test phone → deployed backend (HTTPS enables camera)
+- [x] Deploy backend to Google Cloud Run — DONE
+- [x] Deploy frontend to Cloud Run — DONE
+- [x] Test phone → deployed backend (HTTPS enables camera) — DONE
+- [x] Set up Cloud Build CI/CD auto-deploy on push to main — DONE
 - [ ] Prepare physical demo cards (print Street View photos)
 
 ### Day 2 Morning (March 28, 9am-12pm)

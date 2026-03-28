@@ -1,6 +1,10 @@
 # Chinmay — Backend Engineer & DevOps
 
 > Heavy lifting: Cloud Run deployment, Vertex AI setup, WebSocket hardening
+>
+> **Tasks 1-3 DONE.** Cloud Run backend + frontend deployed. Vertex AI enabled. CORS configured.
+> Backend: `https://asknyc-backend-901435891859.us-central1.run.app`
+> Frontend: `https://asknyc-frontend-901435891859.us-central1.run.app`
 
 ---
 

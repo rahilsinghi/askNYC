@@ -1,149 +1,176 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
-// ─── Exact building IDs for Mapbox Standard ──────────────────────────────────
-// We'll use these to apply custom highlights if needed, or stick to GeoJSON for bloom control
-const ESB_COORDS: [number, number] = [-73.9857, 40.7484];
-const WTC_COORDS: [number, number] = [-74.0135, 40.7126];
+// ─── Exact building footprint polygons ────────────────────────────────────────
+
+const ESB_FOOTPRINT: GeoJSON.Feature = {
+    type: 'Feature',
+    properties: { height: 443, base: 0 },
+    geometry: {
+        type: 'Polygon',
+        coordinates: [[
+            [-73.98618, 40.74883],
+            [-73.98504, 40.74883],
+            [-73.98504, 40.74814],
+            [-73.98618, 40.74814],
+            [-73.98618, 40.74883],
+        ]],
+    },
+};
+
+const WTC_FOOTPRINT: GeoJSON.Feature = {
+    type: 'Feature',
+    properties: { height: 541, base: 0 },
+    geometry: {
+        type: 'Polygon',
+        coordinates: [[
+            [-74.01462, 40.71341],
+            [-74.01330, 40.71341],
+            [-74.01330, 40.71245],
+            [-74.01462, 40.71245],
+            [-74.01462, 40.71341],
+        ]],
+    },
+};
 
 interface MapCanvasProps {
-    onMapLoad?: (map: mapboxgl.Map) => void;
+    onMapLoad?: (map: unknown) => void;
 }
 
 export default function MapCanvas({ onMapLoad }: MapCanvasProps) {
     const mapContainer = useRef<HTMLDivElement>(null);
-    const map = useRef<mapboxgl.Map | null>(null);
+    const mapInstance = useRef<unknown>(null);
 
     useEffect(() => {
-        if (map.current || !mapContainer.current) return;
+        if (!MAPBOX_TOKEN || mapInstance.current || !mapContainer.current) return;
 
-        mapboxgl.accessToken = MAPBOX_TOKEN;
+        let destroyed = false;
 
-        // Start from a wider overview for the cinematic reveal
-        map.current = new mapboxgl.Map({
-            container: mapContainer.current,
-            style: 'mapbox://styles/mapbox/standard',
-            center: [-73.99, 40.735],
-            zoom: 13,
-            pitch: 45,
-            bearing: 0,
-            antialias: true,
-        });
+        const initMap = async () => {
+            const mapboxgl = (await import('mapbox-gl')).default;
+            await import('mapbox-gl/dist/mapbox-gl.css');
+            mapboxgl.accessToken = MAPBOX_TOKEN;
 
-        map.current.on('style.load', () => {
-            if (!map.current) return;
+            if (destroyed || !mapContainer.current) return;
 
-            // ── 1. CONFIGURE MAPBOX STANDARD ──────────────────────────────────
-            map.current.setConfigProperty('basemap', 'lightPreset', 'night');
-            map.current.setConfigProperty('basemap', 'show3dObjects', true);
-            map.current.setConfigProperty('basemap', 'show3dBuildings', true);
-            map.current.setConfigProperty('basemap', 'show3dLandmarks', true);
-            map.current.setConfigProperty('basemap', 'show3dFacades', true);
-
-            // Reduce label clutter aggressively
-            map.current.setConfigProperty('basemap', 'showPointOfInterestLabels', false);
-            map.current.setConfigProperty('basemap', 'showTransitLabels', false);
-            map.current.setConfigProperty('basemap', 'showPlaceLabels', true); // Keep for context
-            map.current.setConfigProperty('basemap', 'showRoadLabels', true);
-
-            // ── 2. ATMOSPHERE / FOG ───────────────────────────────────────────
-            // Standard handle atmosphere well, but we can fine-tune fog for depth
-            map.current.setFog({
-                'range': [0.8, 10],
-                'color': '#020408',
-                'high-color': '#081224',
-                'space-color': '#000000',
-                'star-intensity': 0.15
+            const map = new mapboxgl.Map({
+                container: mapContainer.current,
+                style: 'mapbox://styles/mapbox/dark-v11',
+                center: [-73.998, 40.730],
+                zoom: 14.5,
+                pitch: 60,
+                bearing: -18,
+                antialias: true,
             });
 
-            // ── 3. CINEMATIC FLY-IN ──────────────────────────────────────────
-            setTimeout(() => {
-                map.current?.flyTo({
-                    center: [-73.993, 40.728], // Framed for Manhattan diagonal
-                    zoom: 15.2,
-                    pitch: 62.5,
-                    bearing: -28.5,
-                    duration: 5000,
-                    essential: true,
-                    curve: 0.8
+            mapInstance.current = map;
+
+            map.on('style.load', () => {
+                if (destroyed) return;
+
+                map.addLayer({
+                    id: '3d-buildings',
+                    source: 'composite',
+                    'source-layer': 'building',
+                    filter: ['==', 'extrude', 'true'],
+                    type: 'fill-extrusion',
+                    minzoom: 13,
+                    paint: {
+                        'fill-extrusion-color': '#0D1B2A',
+                        'fill-extrusion-height': ['get', 'height'],
+                        'fill-extrusion-base': ['get', 'min_height'],
+                        'fill-extrusion-opacity': 0.92,
+                        'fill-extrusion-vertical-gradient': true,
+                    },
                 });
-            }, 1000);
 
-            // ── 4. PREMIUM LANDMARK HIGHLIGHTS ───────────────────────────────
-            // We use specialized glow layers instead of simple extrusions
-            // These will sit slightly above or at the base
-
-            // Function to add a soft radial glow at a coordinate
-            const addGlow = (id: string, coords: [number, number], color: string) => {
-                if (!map.current) return;
-
-                map.current.addSource(id, {
+                map.addSource('esb', {
                     type: 'geojson',
-                    data: {
-                        type: 'Feature',
-                        geometry: { type: 'Point', coordinates: coords },
-                        properties: {}
-                    }
+                    data: { type: 'FeatureCollection', features: [ESB_FOOTPRINT] },
                 });
-
-                // Soft outer halo
-                map.current.addLayer({
-                    id: `${id}-halo`,
-                    type: 'circle',
-                    source: id,
+                map.addLayer({
+                    id: 'esb-glow',
+                    type: 'fill-extrusion',
+                    source: 'esb',
                     paint: {
-                        'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 20, 16, 120],
-                        'circle-color': color,
-                        'circle-blur': 0.85,
-                        'circle-opacity': 0.3
-                    }
+                        'fill-extrusion-color': '#F2B35B',
+                        'fill-extrusion-height': ['get', 'height'],
+                        'fill-extrusion-base': ['get', 'base'],
+                        'fill-extrusion-opacity': 0.95,
+                        'fill-extrusion-vertical-gradient': true,
+                    },
                 });
 
-                // Inner core spike
-                map.current.addLayer({
-                    id: `${id}-core`,
-                    type: 'circle',
-                    source: id,
+                map.addSource('wtc', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: [WTC_FOOTPRINT] },
+                });
+                map.addLayer({
+                    id: 'wtc-glow',
+                    type: 'fill-extrusion',
+                    source: 'wtc',
                     paint: {
-                        'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 5, 16, 30],
-                        'circle-color': color,
-                        'circle-blur': 0.2,
-                        'circle-opacity': 0.6
-                    }
+                        'fill-extrusion-color': '#41E4F4',
+                        'fill-extrusion-height': ['get', 'height'],
+                        'fill-extrusion-base': ['get', 'base'],
+                        'fill-extrusion-opacity': 0.95,
+                        'fill-extrusion-vertical-gradient': true,
+                    },
                 });
-            };
 
-            addGlow('esb-highlight', ESB_COORDS, '#F2B35B'); // Golden ESB
-            addGlow('wtc-highlight', WTC_COORDS, '#41E4F4'); // Cyan WTC
+                map.setLight({
+                    anchor: 'viewport',
+                    color: '#afd2ff',
+                    intensity: 0.4,
+                    position: [1.5, 90, 80],
+                });
 
-            if (onMapLoad) onMapLoad(map.current);
-        });
+                map.setFog({
+                    range: [0.5, 7],
+                    color: '#07111D',
+                    'high-color': '#0B1D31',
+                    'space-color': '#000005',
+                    'star-intensity': 0.9,
+                });
+
+                if (onMapLoad) onMapLoad(map);
+            });
+        };
+
+        initMap();
 
         return () => {
-            map.current?.remove();
-            map.current = null;
+            destroyed = true;
+            if (mapInstance.current) {
+                (mapInstance.current as { remove: () => void }).remove();
+                mapInstance.current = null;
+            }
         };
     }, [onMapLoad]);
 
-    return (
-        <div className="absolute inset-0 w-full h-full bg-[#020408]">
-            {/* Mapbox Branding / Status Overlay */}
-            <div className="absolute top-8 left-32 z-50 flex flex-col gap-1 pointer-events-none opacity-60">
-                <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                    <span className="text-[10px] font-black tracking-[0.3em] text-white uppercase">Neural Mapping Core</span>
+    if (!MAPBOX_TOKEN) {
+        return (
+            <div className="absolute inset-0 w-full h-full bg-[#07111D]">
+                <div className="absolute inset-0" style={{
+                    backgroundImage: `
+                        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)
+                    `,
+                    backgroundSize: '40px 40px',
+                }} />
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-white/20 font-mono text-xs tracking-[0.2em] uppercase">Map loading...</span>
                 </div>
-                <div className="h-[1px] w-24 bg-gradient-to-r from-white/20 to-transparent" />
             </div>
+        );
+    }
 
+    return (
+        <div className="absolute inset-0 w-full h-full bg-[#07111D]">
             <div ref={mapContainer} className="w-full h-full" />
-
-            {/* Deep Cinematic Vignette */}
             <div
                 className="absolute inset-0 pointer-events-none"
                 style={{

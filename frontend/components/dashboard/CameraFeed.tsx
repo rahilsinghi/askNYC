@@ -13,9 +13,10 @@ interface CameraFeedProps {
   uploadedImage: string | null
   onImageUpload: (base64: string) => void
   onImageClear: () => void
+  mapCenter?: { lat: number; lng: number } | null
 }
 
-export default function CameraFeed({ detection, remoteConnected, uploadedImage, onImageUpload, onImageClear }: CameraFeedProps) {
+export default function CameraFeed({ detection, remoteConnected, uploadedImage, onImageUpload, onImageClear, mapCenter }: CameraFeedProps) {
   const scanRef = useRef<HTMLDivElement>(null)
   const [scanPos, setScanPos] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
@@ -156,7 +157,7 @@ export default function CameraFeed({ detection, remoteConnected, uploadedImage, 
       {/* GPS + Live badge */}
       <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
         <div className="font-mono text-[9px] tracking-[0.08em] text-white/70 bg-black/70 border border-white/[0.08] px-2 py-0.5 rounded-[3px]">
-          40.7306° N, 73.9975° W
+          {mapCenter ? `${mapCenter.lat.toFixed(4)}° N, ${Math.abs(mapCenter.lng).toFixed(4)}° W` : 'AWAITING LOCATION'}
         </div>
         <div className="font-mono text-[8px] tracking-[0.15em] text-white bg-red px-2 py-0.5 rounded-[3px] live-badge">
           {remoteConnected ? 'LIVE FEED' : uploadedImage ? 'UPLOADED' : 'NO REMOTE'}
