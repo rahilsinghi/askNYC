@@ -111,6 +111,28 @@ export class SceneDirector {
         }
     }
 
+    /**
+     * Highlights an arbitrary coordinate (e.g., from a user search or image upload).
+     * Creates a temporary pulse landmark if it doesn't exist.
+     */
+    highlightArbitraryLocation(id: string, color: string = '#22d3ee') {
+        const rules: RenderRules = {
+            preset: 'CYAN_HERO',
+            glowColor: color,
+            shellRadius: 30,
+            beamHeight: 150,
+            pulseFreq: 2.0,
+            loadHollowShell: true,
+            emissiveIntensity: 2.0,
+            loadCustomModel: false,
+            cameraPreset: 'CINEMATIC_FLY_IN',
+            emphasisRadius: 200,
+        };
+        // Position is handled by transformer in CinematicMap, so we just use 0,0,0 here
+        this.addLandmark(id, rules, new THREE.Vector3(0, 0, 0));
+        this.setHighlight(id, true);
+    }
+
     update() {
         const elapsed = this.clock.getElapsedTime();
 

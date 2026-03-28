@@ -179,7 +179,8 @@ export function useDashboardWs(): DashboardState & { sendQuery: (image: string |
 
     const connect = () => {
       if (!mounted) return
-      const ws = new WebSocket(`${WS_URL}/ws/dashboard`)
+      const baseUrl = WS_URL.endsWith('/ws') ? WS_URL : `${WS_URL}/ws`
+      const ws = new WebSocket(`${baseUrl}/dashboard`)
       wsRef.current = ws
       let pingTimer: ReturnType<typeof setInterval>
 
@@ -407,7 +408,8 @@ export function useRemoteWs(
     if (!sessionId) return
     let mounted = true
     let pingTimer: ReturnType<typeof setInterval>
-    const ws = new WebSocket(`${WS_URL}/ws/remote?session_id=${sessionId}`)
+    const baseUrl = WS_URL.endsWith('/ws') ? WS_URL : `${WS_URL}/ws`
+    const ws = new WebSocket(`${baseUrl}/remote?session_id=${sessionId}`)
     wsRef.current = ws
     ws.onopen = () => {
       if (!mounted) return

@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { MapPin, SOURCE_COLORS } from '@/lib/types'
 
 interface MiniMapProps {
-  pins: MapPin[]
+  pins?: MapPin[]
   centerLat?: number
   centerLng?: number
+  highlightLat?: number | null
+  highlightLng?: number | null
 }
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
@@ -29,11 +31,13 @@ const LEGEND = [
   { label: 'VIOLATIONS', color: '#f59e0b' },
 ]
 
-export default function MiniMap({ pins, centerLat, centerLng }: MiniMapProps) {
+export default function MiniMap({ pins = [], centerLat, centerLng, highlightLat, highlightLng }: MiniMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
   const markersRef = useRef<Map<string, any>>(new Map())
   const landmarkRootsRef = useRef<Map<string, { unmount: () => void }>>(new Map())
+  const highlightMarkerRef = useRef<any>(null)
+
   const [mapLoaded, setMapLoaded] = useState(false)
   const [styleLoaded, setStyleLoaded] = useState(false)
 
@@ -211,6 +215,51 @@ export default function MiniMap({ pins, centerLat, centerLng }: MiniMapProps) {
     }
   }, [])
 
+  // Manage Highlight Glow
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded) return
+    const map = mapRef.current
+
+    if (highlightMarkerRef.current) {
+      highlightMarkerRef.current.remove()
+      highlightMarkerRef.current = null
+    }
+
+    if (highlightLat && highlightLng) {
+      const el = document.createElement('div')
+      el.className = 'detection-glow'
+      el.style.cssText = `
+        position:relative; width:100px; height:100px; 
+        background:radial-gradient(circle, rgba(34,211,238,0.4) 0%, transparent 70%); 
+        border-radius:50%; 
+        animation: pulse-glow 2s ease-out infinite;
+      `
+
+      const inner = document.createElement('div')
+      inner.style.cssText = `
+        position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+        width:12px; height:12px; background:#22d3ee; border-radius:50%;
+        box-shadow: 0 0 20px #22d3ee;
+      `
+      el.appendChild(inner)
+
+      const style = document.createElement('style')
+      style.innerHTML = `
+        @keyframes pulse-glow {
+          0% { transform: scale(0.5); opacity: 0.8; }
+          100% { transform: scale(1.5); opacity: 0; }
+        }
+      `
+      document.head.appendChild(style)
+
+      const marker = new (mapRef.current as any).constructor.Marker({ element: el })
+        .setLngLat([highlightLng, highlightLat])
+        .addTo(map)
+
+      highlightMarkerRef.current = marker
+    }
+  }, [highlightLat, highlightLng, mapLoaded])
+
   // Sync backend pins
   useEffect(() => {
     if (!mapRef.current || !mapLoaded) return
@@ -283,7 +332,7 @@ function createMarkerEl(color: string): HTMLDivElement {
   return wrapper
 }
 
-function CssFallbackMap({ pins }: { pins: MapPin[] }) {
+function CssFallbackMap({ pins = [] }: { pins?: MapPin[] }) {
   return (
     <div className="absolute inset-0 w-full h-full min-h-screen bg-[#07111D] z-0">
       <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)', backgroundSize: '30px 30px' }} />

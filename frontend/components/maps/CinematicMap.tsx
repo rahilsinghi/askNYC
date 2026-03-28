@@ -43,14 +43,19 @@ export default function CinematicMap({
     useEffect(() => {
         const director = sceneDirectorRef.current;
         if (highlightCoords) {
+            // 1. Highlight nearest landmark if exists
             const nearest = LandmarkResolver.findNearest(highlightCoords, 200);
             if (nearest) {
-                // Clear previous highlights
                 director.highlights.clear();
                 director.setHighlight(nearest.id, true);
+            } else {
+                // 2. Otherwise create an arbitrary highlight at these exact coords
+                // 'current-detection' is a fixed ID for the active highlight
+                director.highlightArbitraryLocation('active-detection', '#22d3ee');
             }
         } else {
             director.highlights.clear();
+            director.removeLandmark('active-detection');
         }
     }, [highlightCoords]);
 
@@ -135,12 +140,22 @@ export default function CinematicMap({
                 const group = director.landmarks.get(l.id);
                 if (group) {
                     const latLng = { lat: l.coords.lat, lng: l.coords.lng, altitude: 0 };
-                    // transformer.fromLatLngAltitude returns a float64 array representing the 4x4 matrix
                     const matrix = (transformer as any).fromLatLngAltitude(latLng);
                     group.matrixAutoUpdate = false;
                     group.matrix.fromArray(matrix);
                 }
             });
+
+            // Update arbitrary detection highlight if active
+            if (highlightCoords && director.landmarks.has('active-detection')) {
+                const group = director.landmarks.get('active-detection');
+                if (group) {
+                    const latLng = { lat: highlightCoords.lat, lng: highlightCoords.lng, altitude: 0 };
+                    const matrix = (transformer as any).fromLatLngAltitude(latLng);
+                    group.matrixAutoUpdate = false;
+                    group.matrix.fromArray(matrix);
+                }
+            }
 
             // Since we are using fromLatLngAltitude for each landmark to get the full MVP matrix,
             // the Three.js camera matrices should be identity to avoid double projection.
@@ -160,7 +175,12 @@ export default function CinematicMap({
     if (failed) {
         return (
             <div className="relative w-full h-full bg-[#07111D] flex items-center justify-center">
-                <MiniMap centerLat={center.lat} centerLng={center.lng} />
+                <MiniMap
+                    centerLat={center.lat}
+                    centerLng={center.lng}
+                    highlightLat={highlightCoords?.lat}
+                    highlightLng={highlightCoords?.lng}
+                />
                 <div className="absolute top-6 left-1/2 -translate-x-1/2 glass px-4 py-2 rounded-full border border-red-500/20 z-50 flex items-center gap-3">
                     <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
                     <span className="text-[10px] font-bold tracking-[0.2em] text-red-100/60 uppercase">
