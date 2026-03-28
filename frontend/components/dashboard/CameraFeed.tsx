@@ -18,6 +18,7 @@ interface CameraFeedProps {
   onImageClear: () => void
   mapCenter?: { lat: number; lng: number } | null
   agentState: AgentState
+  isFocusMode?: boolean
 }
 
 export default function CameraFeed({
@@ -27,7 +28,8 @@ export default function CameraFeed({
   onImageUpload,
   onImageClear,
   mapCenter,
-  agentState
+  agentState,
+  isFocusMode
 }: CameraFeedProps) {
   const [scanPos, setScanPos] = useState(0)
   const [isDragging, setIsDragging] = useState(false)

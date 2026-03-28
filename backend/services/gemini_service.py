@@ -182,6 +182,7 @@ async def investigate_location(
     location_name: str,
     question_topic: str,
 ) -> str:
+    print(f"🔍 [Investigate] Location: '{location_name}', Topic: '{question_topic}'")
     """Investigate a NYC location by querying real government data. You MUST call this for EVERY user question — never skip it.
 
     This is your ONLY way to get real NYC data. Without calling this tool, you cannot answer any question about a location.

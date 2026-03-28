@@ -119,17 +119,58 @@ export class SceneDirector {
         const rules: RenderRules = {
             preset: 'CYAN_HERO',
             glowColor: color,
-            shellRadius: 30,
-            beamHeight: 150,
+            shellRadius: 40,
+            beamHeight: 200,
             pulseFreq: 2.0,
             loadHollowShell: true,
-            emissiveIntensity: 2.0,
+            emissiveIntensity: 3.0,
             loadCustomModel: false,
             cameraPreset: 'CINEMATIC_FLY_IN',
-            emphasisRadius: 200,
+            emphasisRadius: 250,
         };
         // Position is handled by transformer in CinematicMap, so we just use 0,0,0 here
         this.addLandmark(id, rules, new THREE.Vector3(0, 0, 0));
+
+        // Add extra cyberpunk flair to arbitrary detection
+        const group = this.landmarks.get(id);
+        if (group) {
+            // 1. Scanning Ring (moves up and down)
+            const scanRingGeom = new THREE.TorusGeometry(rules.shellRadius * 1.2, 0.5, 16, 100);
+            scanRingGeom.rotateX(Math.PI / 2);
+            const scanRingMat = new THREE.MeshBasicMaterial({
+                color: color,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+            const scanRing = new THREE.Mesh(scanRingGeom, scanRingMat);
+            scanRing.name = 'scan-ring';
+            group.add(scanRing);
+
+            // 2. Wireframe Core (rotating hexagonal prism)
+            const coreGeom = new THREE.CylinderGeometry(rules.shellRadius * 0.5, rules.shellRadius * 0.5, rules.beamHeight * 0.8, 6, 1, true);
+            const coreMat = new THREE.MeshBasicMaterial({
+                color: color,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.4,
+                blending: THREE.AdditiveBlending
+            });
+            const core = new THREE.Mesh(coreGeom, coreMat);
+            core.position.y = rules.beamHeight * 0.4;
+            core.name = 'wireframe-core';
+            group.add(core);
+
+            // 3. Floating Data Shards (simulated)
+            for (let i = 0; i < 4; i++) {
+                const shardGeom = new THREE.OctahedronGeometry(2);
+                const shardMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.8 });
+                const shard = new THREE.Mesh(shardGeom, shardMat);
+                shard.name = `shard-${i}`;
+                group.add(shard);
+            }
+        }
+
         this.setHighlight(id, true);
     }
 
@@ -150,7 +191,12 @@ export class SceneDirector {
                         const pulse = Math.sin(elapsed * pulseSpeed) * pulseRange + pulseBase;
 
                         if (child.geometry instanceof THREE.CylinderGeometry) {
-                            mat.opacity = (isHighlighted ? 0.6 : 0.3) * pulse;
+                            if (child.name === 'wireframe-core') {
+                                child.rotation.y = elapsed * 1.5;
+                                mat.opacity = 0.4 * pulse;
+                            } else {
+                                mat.opacity = (isHighlighted ? 0.6 : 0.3) * pulse;
+                            }
                         } else if (child.geometry instanceof THREE.RingGeometry) {
                             mat.opacity = (isHighlighted ? 1.0 : 0.6) * pulse;
                             if (isHighlighted) {
@@ -160,6 +206,20 @@ export class SceneDirector {
                             }
                         } else if (child.geometry instanceof THREE.SphereGeometry) {
                             mat.emissiveIntensity = (isHighlighted ? 2.0 : 0.5) * pulse;
+                        } else if (child.geometry instanceof THREE.TorusGeometry && child.name === 'scan-ring') {
+                            // Vertical scanning animation
+                            child.position.y = (Math.sin(elapsed * 2) + 1) * 100; // Oscillate between 0 and 200
+                            mat.opacity = 0.8 * pulse;
+                        } else if (child.geometry instanceof THREE.OctahedronGeometry) {
+                            // Shard orbit
+                            const index = parseInt(child.name.split('-')[1]);
+                            const angle = elapsed * 2 + (index * Math.PI / 2);
+                            const radius = 50 + Math.sin(elapsed) * 10;
+                            child.position.x = Math.cos(angle) * radius;
+                            child.position.z = Math.sin(angle) * radius;
+                            child.position.y = 80 + Math.cos(angle * 0.5) * 20;
+                            child.rotation.x = elapsed;
+                            child.rotation.y = elapsed * 1.5;
                         }
                     }
                 }

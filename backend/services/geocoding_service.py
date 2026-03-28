@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 async def geocode_location(query: str) -> dict:
+    print(f"🌍 [Geocode] Query: '{query}'")
     """
     Convert a location name or address to coordinates.
 
@@ -55,6 +56,7 @@ async def geocode_location(query: str) -> dict:
     if data.get("status") == "OK" and data.get("results"):
         result = data["results"][0]
         location = result["geometry"]["location"]
+        print(f"✅ [Geocode] Success: {location['lat']}, {location['lng']} for '{result['formatted_address']}'")
         return {
             "lat": location["lat"],
             "lng": location["lng"],

@@ -220,44 +220,65 @@ export default function MiniMap({ pins = [], centerLat, centerLng, highlightLat,
     if (!mapRef.current || !mapLoaded) return
     const map = mapRef.current
 
-    if (highlightMarkerRef.current) {
-      highlightMarkerRef.current.remove()
-      highlightMarkerRef.current = null
+    const updateHighlight = async () => {
+      const mapboxgl = (await import('mapbox-gl')).default
+
+      if (highlightMarkerRef.current) {
+        highlightMarkerRef.current.remove()
+        highlightMarkerRef.current = null
+      }
+
+      if (highlightLat && highlightLng) {
+        const el = document.createElement('div')
+        el.className = 'detection-glow'
+        el.style.cssText = `
+          position:relative; width:140px; height:140px; 
+          background:radial-gradient(circle, rgba(34,211,238,0.5) 0%, transparent 70%); 
+          border-radius:50%; 
+          animation: pulse-glow 2.5s ease-out infinite;
+          display: flex; align-items: center; justify-content: center;
+        `
+
+        const ring = document.createElement('div')
+        ring.style.cssText = `
+          position:absolute; width:100%; height:100%;
+          border: 2px solid rgba(34,211,238,0.3);
+          border-radius: 50%;
+          animation: ring-pulse 2.5s ease-out infinite;
+        `
+        el.appendChild(ring)
+
+        const inner = document.createElement('div')
+        inner.style.cssText = `
+          width:16px; height:16px; background:#22d3ee; border-radius:50%;
+          box-shadow: 0 0 30px #22d3ee, 0 0 60px #22d3ee;
+          z-index: 2;
+        `
+        el.appendChild(inner)
+
+        const style = document.createElement('style')
+        style.innerHTML = `
+          @keyframes pulse-glow {
+            0% { transform: scale(0.6); opacity: 0.8; }
+            50% { opacity: 0.4; }
+            100% { transform: scale(1.6); opacity: 0; }
+          }
+          @keyframes ring-pulse {
+            0% { transform: scale(0.4); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: scale(1.4); opacity: 0; }
+          }
+        `
+        document.head.appendChild(style)
+
+        const marker = new mapboxgl.Marker({ element: el })
+          .setLngLat([highlightLng, highlightLat])
+          .addTo(map)
+
+        highlightMarkerRef.current = marker
+      }
     }
-
-    if (highlightLat && highlightLng) {
-      const el = document.createElement('div')
-      el.className = 'detection-glow'
-      el.style.cssText = `
-        position:relative; width:100px; height:100px; 
-        background:radial-gradient(circle, rgba(34,211,238,0.4) 0%, transparent 70%); 
-        border-radius:50%; 
-        animation: pulse-glow 2s ease-out infinite;
-      `
-
-      const inner = document.createElement('div')
-      inner.style.cssText = `
-        position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-        width:12px; height:12px; background:#22d3ee; border-radius:50%;
-        box-shadow: 0 0 20px #22d3ee;
-      `
-      el.appendChild(inner)
-
-      const style = document.createElement('style')
-      style.innerHTML = `
-        @keyframes pulse-glow {
-          0% { transform: scale(0.5); opacity: 0.8; }
-          100% { transform: scale(1.5); opacity: 0; }
-        }
-      `
-      document.head.appendChild(style)
-
-      const marker = new (mapRef.current as any).constructor.Marker({ element: el })
-        .setLngLat([highlightLng, highlightLat])
-        .addTo(map)
-
-      highlightMarkerRef.current = marker
-    }
+    updateHighlight()
   }, [highlightLat, highlightLng, mapLoaded])
 
   // Sync backend pins

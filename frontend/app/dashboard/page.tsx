@@ -31,6 +31,10 @@ function DashboardContent() {
   const cards = isLive ? ws.cards : demo.cards
   const toolCalls = isLive ? ws.toolCalls : demo.toolCalls
   const transcript = isLive ? ws.transcript : demo.transcript
+  const mapCenter = isLive ? ws.mapCenter : demo.mapCenter
+
+  // Focus mode: Clear the map and move cards to the right when a location is being discussed
+  const isFocusMode = (agentState === 'processing' || agentState === 'speaking') && !!mapCenter
 
   const handleSendQuery = useCallback((text: string) => {
     ws.sendQuery(displayImage, text)
@@ -82,18 +86,18 @@ function DashboardContent() {
       <div className="relative h-full w-full overflow-hidden">
         <div className="fixed inset-0 z-0 pointer-events-auto">
           <CinematicMap
-            center={ws.mapCenter || undefined}
-            highlightCoords={ws.mapCenter}
+            center={mapCenter || undefined}
+            highlightCoords={mapCenter}
           />
-          <FloatingCards cards={cards} />
+          <FloatingCards cards={cards} isFocusMode={isFocusMode} />
         </div>
 
         {/* ─── Level 1: UI Overlay Layer ───────────────────────────────────────── */}
         <div className="relative z-10 flex w-full h-full pointer-events-none">
           {/* Center Canvas: Status + Alerts + Camera + Ask Bar */}
-          <div className="flex-1 flex flex-col items-center justify-between py-6 px-10 relative">
+          <div className={`flex-1 flex flex-col justify-between py-6 px-10 relative transition-all duration-1000 ease-in-out ${isFocusMode ? 'items-end pr-12' : 'items-center'}`}>
             {/* Top: Status Bar */}
-            <div className="w-full flex justify-between items-start pointer-events-auto">
+            <div className={`w-full flex justify-between items-start pointer-events-auto transition-all duration-700 ${isFocusMode ? 'opacity-0 scale-95' : 'opacity-100'}`}>
               <div className="glass px-4 py-1.5 rounded-full flex items-center gap-3 border-white/5">
                 <div className={`w-1.5 h-1.5 rounded-full ${ws.isConnected ? 'bg-health status-pulse shadow-[0_0_8px_#84cc16]' : 'bg-safety red-pulse shadow-[0_0_8px_#ef4444]'}`} />
                 <span className="text-[10px] tracking-[0.2em] font-medium text-white/50 uppercase">
@@ -111,23 +115,24 @@ function DashboardContent() {
             </div>
 
             {/* Middle: Camera Feedback (Floating Pill) */}
-            <div className="pointer-events-auto mt-12 bg-slate-900/40 backdrop-blur-md rounded-2xl border border-white/5 shadow-2xl overflow-hidden">
+            <div className={`pointer-events-auto transition-all duration-1000 ease-in-out ${isFocusMode ? 'mt-20 scale-[0.65] origin-top-right translate-y-[-40px]' : 'mt-12'}`}>
               <CameraFeed
                 detection={ws.detection}
                 remoteConnected={ws.remoteConnected}
                 uploadedImage={displayImage}
                 onImageUpload={setUploadedImage}
                 onImageClear={() => setUploadedImage(null)}
-                mapCenter={ws.mapCenter}
+                mapCenter={mapCenter}
                 agentState={agentState}
+                isFocusMode={isFocusMode}
               />
             </div>
 
             {/* Bottom: Asking Experience */}
-            <div className="w-full flex flex-col items-center gap-4 pointer-events-auto">
+            <div className={`flex flex-col items-center gap-4 pointer-events-auto transition-all duration-700 ${isFocusMode ? 'opacity-20 translate-y-10 scale-90' : 'w-full'}`}>
               {/* Demo Quick Select (only if not live) */}
               {!isLive && (
-                <div className="flex flex-wrap justify-center gap-2">
+                <div className={`flex flex-wrap justify-center gap-2 ${isFocusMode ? 'hidden' : ''}`}>
                   {(['restaurant', 'building', 'construction', 'safety', 'transit', 'general'] as const).map(s => (
                     <button
                       key={s}
@@ -144,6 +149,7 @@ function DashboardContent() {
                 onSendQuery={handleSendQuery}
                 disabled={agentState !== 'idle'}
                 hasImage={!!displayImage}
+                isFocusMode={isFocusMode}
               />
             </div>
           </div>

@@ -50,7 +50,7 @@ async def _heartbeat(ws: WebSocket, label: str):
 
 # ─── Dashboard WebSocket ──────────────────────────────────────────────────────
 
-@router.websocket("/ws/dashboard")
+@router.websocket("/dashboard")
 async def dashboard_ws(websocket: WebSocket):
     """
     The main Ask NYC dashboard connects here.
@@ -151,7 +151,7 @@ async def dashboard_ws(websocket: WebSocket):
 
 # ─── Remote WebSocket ─────────────────────────────────────────────────────────
 
-@router.websocket("/ws/remote")
+@router.websocket("/remote")
 async def remote_ws(websocket: WebSocket, session_id: str = None):
     """
     The phone remote connects here with ?session_id=XXXX from the QR code.
@@ -249,3 +249,19 @@ async def remote_ws(websocket: WebSocket, session_id: str = None):
                 await dashboard.send_json({"type": "remote_disconnected"})
             except Exception:
                 pass
+@router.get("/health")
+async def health():
+    return {
+        "status": "ok",
+        "service": "ask-nyc",
+        "version": "2.0.0",
+        "active_sessions": len(_sessions),
+    }
+
+
+@router.get("/sessions")
+async def list_sessions():
+    """Return all completed sessions (for archive page)."""
+    if _session_service:
+        return {"sessions": _session_service.get_all()}
+    return {"sessions": []}

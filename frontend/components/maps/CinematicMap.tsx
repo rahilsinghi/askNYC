@@ -60,6 +60,19 @@ export default function CinematicMap({
     }, [highlightCoords]);
 
     useEffect(() => {
+        if (map && center && !failed) {
+            const finalZoom = highlightCoords ? 19 : zoom;
+            const finalTilt = highlightCoords ? 67.5 : 45;
+            const finalHeading = highlightCoords ? (map.getHeading() || 0) + 20 : 0; // Subtle rotation on focus
+
+            map.panTo(center);
+            map.setZoom(finalZoom);
+            map.setTilt(finalTilt);
+            map.setHeading(finalHeading);
+        }
+    }, [map, center, zoom, highlightCoords, failed]);
+
+    useEffect(() => {
         setOptions({
             key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
             v: 'beta',

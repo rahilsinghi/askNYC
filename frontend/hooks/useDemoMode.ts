@@ -94,6 +94,7 @@ interface DemoModeReturn {
   transcript: string
   agentState: AgentState
   toolCalls: ToolCall[]
+  mapCenter: { lat: number, lng: number } | null
   runDemo: (scenario: DemoScenario) => void
   reset: () => void
 }
@@ -103,12 +104,14 @@ export function useDemoMode(): DemoModeReturn {
   const [transcript, setTranscript] = useState('')
   const [agentState, setAgentState] = useState<AgentState>('idle')
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([])
+  const [mapCenter, setMapCenter] = useState<{ lat: number, lng: number } | null>(null)
 
   const reset = useCallback(() => {
     setCards([])
     setTranscript('')
     setAgentState('idle')
     setToolCalls([])
+    setMapCenter(null)
   }, [])
 
   const runDemo = useCallback((scenario: DemoScenario) => {
@@ -137,6 +140,10 @@ export function useDemoMode(): DemoModeReturn {
     setTimeout(() => {
       setAgentState('speaking')
       setTranscript(transcripts[0])
+      // Set map center for focus mode
+      if (scenario === 'restaurant') setMapCenter({ lat: 40.7308, lng: -73.9973 })
+      else if (scenario === 'building') setMapCenter({ lat: 40.6841, lng: -73.9822 })
+      else if (scenario === 'construction') setMapCenter({ lat: 40.7061, lng: -73.9969 })
     }, 2000)
 
     // Step 4: cards arrive one by one
@@ -157,5 +164,5 @@ export function useDemoMode(): DemoModeReturn {
     }, 2500 + sequence.length * 1800 + 1000)
   }, [reset])
 
-  return { cards, transcript, agentState, toolCalls, runDemo, reset }
+  return { cards, transcript, agentState, toolCalls, mapCenter, runDemo, reset }
 }

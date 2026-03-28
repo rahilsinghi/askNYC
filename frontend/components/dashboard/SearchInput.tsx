@@ -11,6 +11,7 @@ interface SearchInputProps {
     uploadedImage?: string | null
     onImageUpload?: (base64: string) => void
     onImageClear?: () => void
+    isFocusMode?: boolean
 }
 
 export default function SearchInput({
@@ -19,7 +20,8 @@ export default function SearchInput({
     hasImage,
     uploadedImage,
     onImageUpload,
-    onImageClear
+    onImageClear,
+    isFocusMode
 }: SearchInputProps) {
     const [query, setQuery] = useState('')
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -133,8 +135,8 @@ export default function SearchInput({
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
                             className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${uploadedImage
-                                    ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30 shadow-[0_0_10px_rgba(34,211,238,0.2)]'
-                                    : 'text-white/20 hover:text-white/60 hover:bg-white/5'
+                                ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30 shadow-[0_0_10px_rgba(34,211,238,0.2)]'
+                                : 'text-white/20 hover:text-white/60 hover:bg-white/5'
                                 }`}
                             title="Upload an image"
                         >
