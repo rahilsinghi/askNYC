@@ -26,6 +26,7 @@ export interface DashboardState {
 export function useDashboardWs(): DashboardState & { sendQuery: (image: string | null, text: string) => void } {
   const wsRef = useRef<WebSocket | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)
+  const nextPlayTimeRef = useRef<number>(0)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [state, setState] = useState<DashboardState>({
@@ -81,7 +82,11 @@ export function useDashboardWs(): DashboardState & { sendQuery: (image: string |
       const src = ctx.createBufferSource()
       src.buffer = buf
       src.connect(ctx.destination)
-      src.start()
+      // Schedule chunk to play after the previous one finishes
+      const now = ctx.currentTime
+      const startAt = Math.max(now, nextPlayTimeRef.current)
+      src.start(startAt)
+      nextPlayTimeRef.current = startAt + buf.duration
     } catch (e) {
       console.warn('Audio playback:', e)
     }
@@ -92,6 +97,7 @@ export function useDashboardWs(): DashboardState & { sendQuery: (image: string |
     switch (msg.type) {
       case 'session_ready':
         // Reset stale state from previous session
+        nextPlayTimeRef.current = 0
         setState(s => ({
           ...s,
           sessionId: msg.session_id,
@@ -110,7 +116,7 @@ export function useDashboardWs(): DashboardState & { sendQuery: (image: string |
         playChunk(msg.data)
         break
       case 'transcript':
-        if (!msg.partial) setState(s => ({ ...s, transcript: msg.text }))
+        setState(s => ({ ...s, transcript: msg.text }))
         break
       case 'data_card':
         setState(s => ({ ...s, cards: [msg.card, ...s.cards].slice(0, 6) }))
@@ -127,7 +133,11 @@ export function useDashboardWs(): DashboardState & { sendQuery: (image: string |
             source: msg.source, label: msg.label,
             timestamp: Date.now(),
           }
-          setState(s => ({ ...s, pins: [...s.pins, pin] }))
+          setState(s => ({
+            ...s,
+            pins: [...s.pins, pin],
+            mapCenter: { lat: msg.lat, lng: msg.lng },
+          }))
         }
         break
       case 'tool_call': {

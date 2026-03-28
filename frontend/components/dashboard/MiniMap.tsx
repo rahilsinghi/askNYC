@@ -180,17 +180,6 @@ export default function MiniMap({ pins, centerLat, centerLng }: MiniMapProps) {
           .addTo(map)
         existing.set(pin.id, marker)
       })
-
-      // Fly to most recent pin
-      if (pins.length > 0) {
-        const latest = pins[pins.length - 1]
-        map.flyTo({
-          center: [latest.lng, latest.lat],
-          zoom: Math.max(map.getZoom(), 14),
-          duration: 1200,
-          essential: true,
-        })
-      }
     }
 
     initPins()

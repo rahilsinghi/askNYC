@@ -501,11 +501,11 @@ class GeminiSession:
         if event.turn_complete:
             event_info.append('turn_complete')
         if event.input_transcription:
-            txt = str(event.input_transcription)
+            txt = event.input_transcription.text or str(event.input_transcription)
             event_info.append(f'in_transcript:{txt[:40]}')
             self._last_user_transcript = txt
         if event.output_transcription:
-            txt = str(event.output_transcription)
+            txt = event.output_transcription.text or str(event.output_transcription)
             event_info.append(f'out_transcript:{txt[:40]}')
         if event_info and 'audio' not in event_info:
             print(f"[GeminiSession {self.session_id}] event: {', '.join(event_info)}")
@@ -533,20 +533,23 @@ class GeminiSession:
 
         # ── Input transcription (user speech-to-text) ────────────────────
         if event.input_transcription:
+            txt = event.input_transcription.text or str(event.input_transcription)
             await self.dashboard_send({
                 "type": "transcript",
-                "text": str(event.input_transcription),
+                "text": txt,
                 "speaker": "user",
                 "partial": True,
             })
 
         # ── Output transcription (agent speech-to-text) ──────────────────
         if event.output_transcription:
+            txt = event.output_transcription.text or str(event.output_transcription)
+            finished = event.output_transcription.finished or False
             await self.dashboard_send({
                 "type": "transcript",
-                "text": str(event.output_transcription),
+                "text": txt,
                 "speaker": "agent",
-                "partial": bool(event.partial),
+                "partial": not finished,
             })
 
         # ── Tool calls (from actions) ────────────────────────────────────
