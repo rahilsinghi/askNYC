@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 from routers import ws as ws_module
 from routers.ws import router as ws_router
+from routers.recommend import router as recommend_router
 from services.session_service import SessionService
 
 load_dotenv()
@@ -47,6 +48,7 @@ app.add_middleware(
 )
 
 app.include_router(ws_router, prefix="/ws")
+app.include_router(recommend_router)
 
 
 # Routes are now in routers/ws.py

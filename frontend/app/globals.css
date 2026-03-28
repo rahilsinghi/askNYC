@@ -145,3 +145,23 @@
     display: none;
   }
 }
+
+/* Scan line animation for agent cards */
+@keyframes scan {
+  0% { top: 0%; }
+  100% { top: 100%; }
+}
+
+.animate-scan {
+  animation: scan 2s linear infinite;
+}
+
+/* Glow pulse for running agents */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 15px rgba(6, 182, 212, 0.3); }
+  50% { box-shadow: 0 0 25px rgba(6, 182, 212, 0.5); }
+}
+
+.animate-glow-pulse {
+  animation: glowPulse 1.5s ease-in-out infinite;
+}

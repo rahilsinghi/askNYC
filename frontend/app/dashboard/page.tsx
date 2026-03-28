@@ -84,6 +84,7 @@ function DashboardContent() {
   return (
     <DashboardLayout>
       <div className="relative h-full w-full overflow-hidden">
+        {/* ─── Level 0: Cinematic Map Background ──────────────────────────────── */}
         <div className="fixed inset-0 z-0 pointer-events-auto">
           <CinematicMap
             center={mapCenter || undefined}
