@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useCallback } from 'react'
 import Sidebar from '@/components/dashboard/Sidebar'
 import CameraFeed from '@/components/dashboard/CameraFeed'
 import MiniMap from '@/components/dashboard/MiniMap'
@@ -10,6 +11,7 @@ import { useDemoMode } from '@/hooks/useDemoMode'
 export default function DashboardPage() {
   const ws = useDashboardWs()
   const demo = useDemoMode()
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null)
 
   // Use WS data when backend is connected, demo data when not
   const isLive = ws.isConnected
@@ -17,6 +19,10 @@ export default function DashboardPage() {
   const cards        = isLive ? ws.cards        : demo.cards
   const toolCalls    = isLive ? ws.toolCalls    : demo.toolCalls
   const transcript   = isLive ? ws.transcript   : demo.transcript
+
+  const handleSendQuery = useCallback((text: string) => {
+    ws.sendQuery(uploadedImage, text)
+  }, [ws, uploadedImage])
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -64,6 +70,9 @@ export default function DashboardPage() {
         <CameraFeed
           detection={ws.detection}
           remoteConnected={ws.remoteConnected}
+          uploadedImage={uploadedImage}
+          onImageUpload={setUploadedImage}
+          onImageClear={() => setUploadedImage(null)}
         />
 
         {/* Mini map */}
@@ -83,6 +92,7 @@ export default function DashboardPage() {
         sessionId={ws.sessionId}
         remoteUrl={ws.remoteUrl}
         remoteConnected={ws.remoteConnected}
+        onSendQuery={isLive ? handleSendQuery : undefined}
       />
     </div>
   )

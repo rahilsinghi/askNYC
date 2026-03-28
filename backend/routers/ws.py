@@ -74,9 +74,17 @@ async def dashboard_ws(websocket: WebSocket):
             data = await websocket.receive_text()
             msg = json.loads(data)
 
-            # Handle dashboard-initiated requests (e.g. manual query)
-            if msg.get("type") == "ping":
+            msg_type = msg.get("type")
+
+            if msg_type == "ping":
                 await websocket.send_json({"type": "pong"})
+
+            elif msg_type == "dashboard_query":
+                # Image upload + text query from dashboard
+                if msg.get("image"):
+                    await session.send_video_frame(msg["image"])
+                if msg.get("text"):
+                    await session.send_text(msg["text"])
 
     except WebSocketDisconnect:
         pass

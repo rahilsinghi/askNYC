@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { AgentState, DataCard as DataCardType, ToolCall } from '@/lib/types'
 import Waveform from './Waveform'
@@ -13,6 +14,7 @@ interface IntelligenceBriefProps {
   sessionId: string | null
   remoteUrl: string | null
   remoteConnected: boolean
+  onSendQuery?: (text: string) => void
 }
 
 const STATE_LABEL: Record<AgentState, string> = {
@@ -37,9 +39,11 @@ export default function IntelligenceBrief({
   sessionId,
   remoteUrl,
   remoteConnected,
+  onSendQuery,
 }: IntelligenceBriefProps) {
   const stateColor = STATE_COLOR[agentState]
   const stateLabel = STATE_LABEL[agentState]
+  const [queryText, setQueryText] = useState('')
 
   // Build remote page URL
   const remoteFullUrl = typeof window !== 'undefined' && remoteUrl
@@ -147,6 +151,39 @@ export default function IntelligenceBrief({
           <DataCard key={`${card.badge_label}-${i}`} card={card} index={i} />
         ))}
       </div>
+
+      {/* Text query input */}
+      {!remoteConnected && onSendQuery && (
+        <div className="border-t border-border px-5 py-3">
+          <p className="font-mono text-[8px] tracking-[0.2em] text-muted mb-2">ASK A QUESTION</p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (queryText.trim() && agentState === 'idle') {
+                onSendQuery(queryText.trim())
+                setQueryText('')
+              }
+            }}
+            className="flex gap-2"
+          >
+            <input
+              type="text"
+              value={queryText}
+              onChange={(e) => setQueryText(e.target.value.slice(0, 500))}
+              placeholder="Is this restaurant safe to eat at?"
+              disabled={agentState !== 'idle'}
+              className="flex-1 bg-surface border border-border rounded-md px-3 py-2 font-mono text-[10px] text-[#f4f4f5] placeholder:text-dim focus:outline-none focus:border-green/50 disabled:opacity-50 transition-colors"
+            />
+            <button
+              type="submit"
+              disabled={!queryText.trim() || agentState !== 'idle'}
+              className="px-3 py-2 bg-green/20 border border-green/30 rounded-md font-mono text-[9px] tracking-wider text-green hover:bg-green/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              ASK
+            </button>
+          </form>
+        </div>
+      )}
 
       {/* QR code / Recent explorations */}
       <div className="border-t border-border px-5 py-3">

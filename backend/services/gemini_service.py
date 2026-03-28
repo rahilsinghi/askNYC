@@ -414,6 +414,14 @@ class GeminiSession:
                 types.Blob(data=jpeg_bytes, mime_type="image/jpeg")
             )
 
+    async def send_text(self, text: str):
+        """Send a text query into the live session."""
+        if self._live_queue:
+            self._live_queue.send_content(
+                types.Content(role="user", parts=[types.Part(text=text)])
+            )
+        await self.dashboard_send({"type": "agent_state", "state": "processing"})
+
     async def stop(self):
         """Stop the session and return the summary."""
         self._running = False

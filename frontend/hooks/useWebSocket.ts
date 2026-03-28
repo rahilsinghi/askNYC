@@ -21,7 +21,7 @@ export interface DashboardState {
   isConnected: boolean
 }
 
-export function useDashboardWs(): DashboardState {
+export function useDashboardWs(): DashboardState & { sendQuery: (image: string | null, text: string) => void } {
   const wsRef = useRef<WebSocket | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -164,7 +164,14 @@ export function useDashboardWs(): DashboardState {
     }
   }, [onMessage])
 
-  return state
+  const sendQuery = useCallback((image: string | null, text: string) => {
+    const ws = wsRef.current
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'dashboard_query', image, text }))
+    }
+  }, [])
+
+  return { ...state, sendQuery }
 }
 
 
