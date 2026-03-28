@@ -255,7 +255,7 @@ All prompts are defined in `backend/services/gemini_service.py`. Key prompts:
 - "What trains are nearby?" → TransitExpert
 - General questions → Google Search + own knowledge
 
-**Model:** `gemini-3.1-flash-live-preview` (all agents)
+**Model:** `gemini-live-2.5-flash-native-audio` (all agents)
 
 ---
 
@@ -263,7 +263,10 @@ All prompts are defined in `backend/services/gemini_service.py`. Key prompts:
 
 ```bash
 # Backend
-GOOGLE_API_KEY=              # Gemini API key (Google AI Studio)
+GOOGLE_GEMINI_API_KEY=       # Gemini API key (Google AI Studio) — aliased to GOOGLE_API_KEY at runtime
+GOOGLE_GENAI_USE_VERTEXAI=   # Set to TRUE for Vertex AI (Cloud Run)
+GOOGLE_CLOUD_PROJECT=        # GCP project ID (for Vertex AI)
+GOOGLE_CLOUD_LOCATION=       # GCP region (for Vertex AI)
 GOOGLE_MAPS_API_KEY=         # Google Maps Geocoding API
 SOCRATA_APP_TOKEN=           # Optional: increases rate limits
 CORS_ORIGINS=http://localhost:3000,https://your-frontend.vercel.app
