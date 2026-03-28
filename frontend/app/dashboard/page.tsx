@@ -35,6 +35,9 @@ function DashboardContent() {
     }
   }, [demo])
 
+  // Show remote-captured image on dashboard (overrides manual upload)
+  const displayImage = ws.capturedImage || uploadedImage
+
   // Use WS data when backend is connected, demo data when not
   const isLive = ws.isConnected
   const agentState   = isLive ? ws.agentState   : demo.agentState
@@ -43,8 +46,8 @@ function DashboardContent() {
   const transcript   = isLive ? ws.transcript   : demo.transcript
 
   const handleSendQuery = useCallback((text: string) => {
-    ws.sendQuery(uploadedImage, text)
-  }, [ws, uploadedImage])
+    ws.sendQuery(displayImage, text)
+  }, [ws, displayImage])
 
   // ─── Query param handling ────────────────────────────────────────────────────
 
@@ -154,7 +157,7 @@ function DashboardContent() {
         <CameraFeed
           detection={ws.detection}
           remoteConnected={ws.remoteConnected}
-          uploadedImage={uploadedImage}
+          uploadedImage={displayImage}
           onImageUpload={setUploadedImage}
           onImageClear={() => setUploadedImage(null)}
           mapCenter={ws.mapCenter}
@@ -189,7 +192,7 @@ function DashboardContent() {
         remoteUrl={ws.remoteUrl}
         remoteConnected={ws.remoteConnected}
         onSendQuery={isLive ? handleSendQuery : undefined}
-        hasImage={!!uploadedImage}
+        hasImage={!!displayImage}
         sessionSummary={ws.sessionSummary}
       />
     </div>

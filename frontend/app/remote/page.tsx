@@ -1,17 +1,35 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useRemoteWs } from '@/hooks/useWebSocket'
 import MicButton from '@/components/remote/MicButton'
-import { X } from 'lucide-react'
+import { X, Camera } from 'lucide-react'
 import Link from 'next/link'
 
 function RemoteContent() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session') ?? ''
 
-  const { isConnected, startSpeaking, stopSpeaking } = useRemoteWs(sessionId)
+  const { isConnected, isSpeaking, cameraActive, startSpeaking, stopSpeaking, captureFrame } = useRemoteWs(sessionId)
+  const [showFlash, setShowFlash] = useState(false)
+  const [captured, setCaptured] = useState(false)
+
+  // Flash effect resets after animation
+  useEffect(() => {
+    if (showFlash) {
+      const t = setTimeout(() => setShowFlash(false), 300)
+      return () => clearTimeout(t)
+    }
+  }, [showFlash])
+
+  const handleCapture = () => {
+    captureFrame()
+    setShowFlash(true)
+    setCaptured(true)
+    // Reset "captured" badge after 5s
+    setTimeout(() => setCaptured(false), 5000)
+  }
 
   // No session ID — prompt user to scan QR from dashboard
   if (!sessionId) {
@@ -42,17 +60,23 @@ function RemoteContent() {
 
   return (
     <main className="relative h-screen w-screen bg-black overflow-hidden flex flex-col">
-      {/* Camera feed (background) */}
+      {/* Camera feed (background) — always mounted so getUserMedia can attach */}
       <div className="absolute inset-0 z-0">
         <video
           id="camera-preview"
           autoPlay
           playsInline
+          webkit-playsinline="true"
           muted
           className="w-full h-full object-cover"
         />
         {/* Gradient overlay for readability */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40" />
+
+        {/* Capture flash */}
+        {showFlash && (
+          <div className="absolute inset-0 bg-white/70 z-50 pointer-events-none animate-[flash_0.3s_ease-out_forwards]" />
+        )}
       </div>
 
       {/* Top bar */}
@@ -80,8 +104,21 @@ function RemoteContent() {
           </p>
         </div>
 
-        {/* Spacer to balance the close button */}
-        <div className="w-11" />
+        {/* Status badges */}
+        <div className="flex flex-col items-end gap-1">
+          {cameraActive && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-electric-cyan/10">
+              <div className="w-1.5 h-1.5 rounded-full bg-electric-cyan" />
+              <span className="text-[8px] font-mono tracking-wider text-electric-cyan uppercase">Live</span>
+            </div>
+          )}
+          {isSpeaking && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-warm-amber/10">
+              <div className="w-1.5 h-1.5 rounded-full bg-warm-amber animate-pulse" />
+              <span className="text-[8px] font-mono tracking-wider text-warm-amber uppercase">Mic On</span>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Center viewfinder */}
@@ -98,25 +135,56 @@ function RemoteContent() {
         {isConnected && (
           <div className="relative w-64 h-64 flex items-center justify-center">
             {/* Focus corners */}
-            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-electric-cyan/60 rounded-tl-2xl" />
-            <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-electric-cyan/60 rounded-tr-2xl" />
-            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-electric-cyan/60 rounded-bl-2xl" />
-            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-electric-cyan/60 rounded-br-2xl" />
+            <div className={`absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 rounded-tl-2xl transition-colors duration-300 ${isSpeaking ? 'border-warm-amber' : 'border-electric-cyan/60'}`} />
+            <div className={`absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 rounded-tr-2xl transition-colors duration-300 ${isSpeaking ? 'border-warm-amber' : 'border-electric-cyan/60'}`} />
+            <div className={`absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 rounded-bl-2xl transition-colors duration-300 ${isSpeaking ? 'border-warm-amber' : 'border-electric-cyan/60'}`} />
+            <div className={`absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 rounded-br-2xl transition-colors duration-300 ${isSpeaking ? 'border-warm-amber' : 'border-electric-cyan/60'}`} />
 
             <p className="text-[10px] font-mono tracking-[0.3em] text-white/30 uppercase">
-              Point at a location
+              {isSpeaking ? 'Listening...' : captured ? 'Now hold mic to ask' : 'Point at a location'}
             </p>
           </div>
         )}
       </div>
 
       {/* Bottom controls */}
-      <footer className="relative z-10 pb-12 pt-6 flex flex-col items-center">
-        <MicButton
-          onStart={startSpeaking}
-          onStop={stopSpeaking}
-          disabled={!isConnected}
-        />
+      <footer className="relative z-10 pb-12 pt-6 flex flex-col items-center gap-4">
+        {/* Captured confirmation */}
+        {captured && (
+          <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-electric-cyan/10 border border-electric-cyan/20">
+            <div className="w-2 h-2 rounded-full bg-electric-cyan" />
+            <span className="text-[10px] font-mono tracking-wider text-electric-cyan uppercase">
+              Photo sent to dashboard
+            </span>
+          </div>
+        )}
+
+        {/* Controls row: Capture — Mic — (spacer) */}
+        <div className="flex items-center gap-8">
+          {/* Capture button */}
+          <button
+            onClick={handleCapture}
+            disabled={!isConnected || !cameraActive}
+            className="p-4 rounded-full border border-white/10 text-white/50 hover:text-electric-cyan hover:border-electric-cyan/40 active:scale-95 transition-all disabled:opacity-30 disabled:pointer-events-none"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+          >
+            <Camera className="w-6 h-6" />
+          </button>
+
+          {/* Mic button (center, largest) */}
+          <MicButton
+            onStart={startSpeaking}
+            onStop={stopSpeaking}
+            disabled={!isConnected}
+          />
+
+          {/* Spacer to balance layout */}
+          <div className="w-14" />
+        </div>
+
+        <p className="text-[9px] font-mono tracking-wider text-white/20 text-center max-w-xs">
+          Tap capture to snap, then hold mic to ask
+        </p>
       </footer>
     </main>
   )

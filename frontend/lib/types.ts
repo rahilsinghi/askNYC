@@ -33,6 +33,7 @@ export type WsMessage =
   | { type: 'detection'; label: string; confidence: number }
   | { type: 'agent_state'; state: AgentState }
   | { type: 'session_complete'; session: SessionSummary }
+  | { type: 'captured_image'; data: string }
   | { type: 'remote_connected' }
   | { type: 'remote_disconnected' }
   | { type: 'pong' }
@@ -42,6 +43,7 @@ export type WsMessage =
 export type RemoteMessage =
   | { type: 'video_frame'; data: string }
   | { type: 'audio_frame'; data: string }
+  | { type: 'capture_frame'; data: string }
   | { type: 'user_start_speaking' }
   | { type: 'user_stop_speaking' }
   | { type: 'ping' }
