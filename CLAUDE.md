@@ -28,7 +28,7 @@ This is a **2-day hackathon build** for the NYC Build With AI Hackathon @ NYU Ta
 │                                                             │
 │  /dashboard    Main screen (camera+map+brief) ──────────┐  │
 │  /remote       Phone page (camera+mic)         ─────┐   │  │
-│  /archive      Session history                      │   │  │
+│  /archive      Session history (real data)           │   │  │
 │  /             Splash / onboarding                  │   │  │
 └─────────────────────────────────────────────────────────────┘
          ▲ WebSocket (audio + map events)      │   │
@@ -43,7 +43,7 @@ This is a **2-day hackathon build** for the NYC Build With AI Hackathon @ NYU Ta
 │  GeminiService   ─── ADK agent + Gemini Live session        │
 │  SocrataService  ─── 7 NYC Open Data tool functions         │
 │  GeocodingService ── Google Maps lat/lng lookup             │
-│  SessionService  ─── In-memory session store                │
+│  SessionService  ─── JSON-file session store (/tmp)          │
 └─────────────────────────────────────────────────────────────┘
          │ tool calls (SoQL queries, ~500ms each)
          ▼
@@ -87,14 +87,16 @@ ask-nyc/
 ├── frontend/                    ← Next.js 15 + TypeScript
 │   ├── app/
 │   │   ├── page.tsx             ← splash/onboarding
-│   │   ├── dashboard/page.tsx   ← main dashboard
+│   │   ├── dashboard/page.tsx   ← main dashboard (collapsible sidebar)
 │   │   ├── remote/page.tsx      ← phone remote
-│   │   └── archive/page.tsx     ← session history
+│   │   ├── archive/page.tsx     ← session history (real data from /sessions)
+│   │   └── insights/page.tsx    ← aggregate analytics (real data from /sessions)
 │   ├── components/
 │   │   ├── dashboard/
-│   │   │   ├── Sidebar.tsx
+│   │   │   ├── Sidebar.tsx          ← collapsible sidebar (56px/200px)
 │   │   │   ├── CameraFeed.tsx
 │   │   │   ├── MiniMap.tsx
+│   │   │   ├── FloatingCards.tsx    ← data cards overlay on map
 │   │   │   ├── IntelligenceBrief.tsx
 │   │   │   ├── DataCard.tsx
 │   │   │   └── Waveform.tsx
@@ -237,11 +239,13 @@ root_agent = LlmAgent(
 
 This single tool call does everything in one shot:
 1. Geocodes the location via Google Maps API
-2. Queries relevant Socrata datasets based on `question_topic` (food_safety, housing, safety, construction, transit, general)
-3. Pushes `data_card` events to the dashboard for each result
-4. Pushes `map_event` pins to the dashboard map
-5. Pushes `tool_call` status badges (pending → complete) for each sub-query
-6. Returns a text summary for the model to synthesize into spoken audio
+2. Stores `location_name`, `location_address`, `lat`, `lng` on session state
+3. Queries relevant Socrata datasets based on `question_topic` (food_safety, housing, safety, construction, transit, general)
+4. Tracks queried datasets in `state.datasets_queried`
+5. Pushes `data_card` events to the dashboard AND appends to `state.cards`
+6. Pushes `map_event` pins to the dashboard map
+7. Pushes `tool_call` status badges (pending → complete) for each sub-query
+8. Returns a text summary for the model to synthesize into spoken audio
 
 ### Topic → Dataset mapping
 | question_topic | Datasets queried |

@@ -34,12 +34,12 @@
 | Socrata API (7 datasets) | **7/7 passing** | All return real NYC data, tested at NYU Tandon coords |
 | Geocoding service | **Active** | Google Maps API key configured |
 | Gemini Live integration | **Active** | Gemini API key + Vertex AI configured |
-| Session store | Implemented | In-memory, lost on restart |
+| Session store | Implemented | JSON-file backed (`/tmp/asknyc_sessions.json`), persists within Cloud Run instance |
 | Frontend (Next.js 15) | **Deployed** | Cloud Run, standalone build, Mapbox token baked in |
 | Splash page (`/`) | Complete | Animated wordmark, count-up stats, CTA |
 | Dashboard (`/dashboard`) | Complete | 4-panel layout, demo mode, WebSocket integration |
 | Remote (`/remote`) | Complete | Camera + mic UI, hold-to-speak button |
-| Archive (`/archive`) | Complete | Session grid with demo data fallback |
+| Archive (`/archive`) | Complete | Session grid with real data from `/sessions` API, search + time filters |
 | Demo mode | Complete | 3 offline scenarios (restaurant, building, construction) |
 | Design system | Complete | Tailwind config, CSS animations, Google Fonts |
 | Cloud Build CI/CD | **Deployed** | Auto-deploys on push to main via Cloud Build trigger |
@@ -79,7 +79,7 @@
 │  /dashboard     Main screen — camera + map + intelligence brief   │
 │  /remote        Phone page — camera + mic hold-to-speak           │
 │  /archive       Session history — grid of past conversations      │
-│  /insights      [PLACEHOLDER] — aggregate analytics               │
+│  /insights      Aggregate analytics (real data from /sessions)    │
 │  /sessions      [PLACEHOLDER] — live session management           │
 │                                                                   │
 │  Hooks:                                                           │
@@ -88,8 +88,9 @@
 │    useDemoMode()    — 3 offline demo scenarios                    │
 │                                                                   │
 │  Components:                                                      │
-│    Sidebar ─── CameraFeed ─── MiniMap ─── IntelligenceBrief       │
-│    DataCard ── Waveform ──── MicButton ── SessionCard             │
+│    Sidebar (collapsible) ── CameraFeed ── MiniMap ────────────    │
+│    FloatingCards ── IntelligenceBrief ── DataCard ── Waveform     │
+│    MicButton ── SessionCard ── SearchInput                        │
 └──────────────────────────────────────────────────────────────────┘
           ▲ WebSocket (JSON events)         │
           │                                 │
@@ -408,9 +409,12 @@ gcloud builds list --region=us-central1 --project=nth-segment-491623-d2 --limit=
 | 5 | Dashboard UI — camera + cards | DONE | Aishwarya |
 | 6 | Tool call → card animation | DONE | Both |
 | 7 | Phone remote page | DONE | Aishwarya |
-| 8 | Map pins (Mapbox) | NOT STARTED | Sariya |
-| 9 | Session archive | DONE | Either |
+| 8 | Map pins (Mapbox) | DONE | Sariya |
+| 9 | Session archive (real data) | DONE | Rahil |
 | 10 | Onboarding/splash | DONE | Either |
+| 11 | Insights page (real data) | DONE | Rahil |
+| 12 | Collapsible sidebar | DONE | Rahil |
+| 13 | Floating data cards on map | DONE | Rahil |
 
 **Minimum viable demo (items 1-7): COMPLETE.**
 
@@ -442,6 +446,13 @@ gcloud builds list --region=us-central1 --project=nth-segment-491623-d2 --limit=
 | DOB permits has text lat/lng, not numeric | Changed to text bounding box comparison |
 | HPD violations has no geo columns at all | Changed to zip code + borough approximation |
 | No `.gitignore` in repository | Created with venv, node_modules, .env, .next, __pycache__ |
+| Data cards hidden behind sidebar | Moved to `FloatingCards` component with dynamic `left` offset based on sidebar state |
+| Sidebar not collapsible | Added collapse toggle (200px → 56px icon rail) with chevron button |
+| Insights/archive "Back to Atlas" restarts app | Changed to "Back" linking to `/dashboard` |
+| Insights page not scrollable | Added `overflow-y-auto` to `<main>` |
+| `SessionState` missing `location_address` | Added field, stored from geocoding in `_do_investigate()` |
+| `datasets_queried` always empty | Added `_track_dataset()` calls in each query branch of `_do_investigate()` |
+| Data cards not persisted to session | `_push_card_to_dashboard()` now also appends to `_current_state.cards` |
 
 ## File Ownership
 
