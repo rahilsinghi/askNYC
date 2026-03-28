@@ -32,33 +32,45 @@ export default function CameraFeed({ detection, remoteConnected, uploadedImage, 
     return () => cancelAnimationFrame(raf)
   }, [])
 
-  const handleFile = useCallback((file: File) => {
+  const handleFile = (file: File) => {
     if (!file.type.startsWith('image/')) return
-    if (file.size > 5 * 1024 * 1024) return // 5MB limit
 
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string
-      // Extract base64 without the data:image/...;base64, prefix
+    // Resize to 768x768 JPEG to match remote camera format
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const size = 768
+      canvas.width = size
+      canvas.height = size
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+
+      // Center crop to square
+      const scale = Math.max(size / img.width, size / img.height)
+      const w = img.width * scale
+      const h = img.height * scale
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h)
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
       const base64 = dataUrl.split(',')[1]
-      onImageUpload(base64)
+      if (base64) onImageUpload(base64)
     }
-    reader.readAsDataURL(file)
-  }, [onImageUpload])
+    img.src = URL.createObjectURL(file)
+  }
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
     const file = e.dataTransfer.files[0]
     if (file) handleFile(file)
-  }, [handleFile])
+  }
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(true)
-  }, [])
+  }
 
-  const handleDragLeave = useCallback(() => setIsDragging(false), [])
+  const handleDragLeave = () => setIsDragging(false)
 
   return (
     <div
@@ -177,35 +189,38 @@ export default function CameraFeed({ detection, remoteConnected, uploadedImage, 
         </div>
       )}
 
+      {/* Hidden file input — always mounted */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const files = e.target.files
+          if (files && files.length > 0) {
+            handleFile(files[0])
+          }
+          e.target.value = ''
+        }}
+      />
+
       {/* Drop zone / upload prompt */}
       {!remoteConnected && !uploadedImage && (
         <div
-          className={`absolute inset-0 flex flex-col items-center justify-center z-10 cursor-pointer transition-colors ${isDragging ? 'bg-green/10' : ''}`}
+          className={`absolute inset-0 flex flex-col items-center justify-center z-30 cursor-pointer transition-colors ${isDragging ? 'bg-green/10' : ''}`}
           onClick={() => fileInputRef.current?.click()}
         >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) handleFile(file)
-            }}
-          />
           {isDragging ? (
-            <div className="font-mono text-[11px] tracking-[0.15em] text-green">DROP IMAGE HERE</div>
+            <div className="font-mono text-[13px] tracking-[0.15em] text-green font-medium">DROP IMAGE HERE</div>
           ) : (
-            <>
-              <div className="font-mono text-[9px] tracking-[0.15em] text-muted mb-2">DROP AN IMAGE OR CLICK TO UPLOAD</div>
-              <div className="w-px h-4 bg-border mb-2" />
-              <div className="font-mono text-[8px] tracking-[0.1em] text-dim">Street view, storefront, building photo</div>
-            </>
+            <div className="flex flex-col items-center gap-3 p-6 rounded-lg border border-dashed border-white/20 bg-black/40 backdrop-blur-sm">
+              <div className="w-10 h-10 rounded-full border border-green/40 flex items-center justify-center text-green text-xl">+</div>
+              <div className="font-mono text-[10px] tracking-[0.12em] text-white/70">DROP AN IMAGE OR CLICK TO UPLOAD</div>
+              <div className="font-mono text-[8px] tracking-[0.1em] text-white/40">Street view, storefront, building photo</div>
+            </div>
           )}
         </div>
       )}
-
-      {/* Hidden file input */}
     </div>
   )
 }

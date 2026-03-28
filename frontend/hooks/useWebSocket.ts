@@ -72,9 +72,22 @@ export function useDashboardWs(): DashboardState & { sendQuery: (image: string |
   }, [initAudio])
 
   const onMessage = useCallback((msg: WsMessage) => {
+    console.log('[ws] received:', msg.type, msg.type === 'audio_chunk' ? '(audio)' : JSON.stringify(msg).slice(0, 200))
     switch (msg.type) {
       case 'session_ready':
-        setState(s => ({ ...s, sessionId: msg.session_id, remoteUrl: msg.remote_url }))
+        // Reset stale state from previous session
+        setState(s => ({
+          ...s,
+          sessionId: msg.session_id,
+          remoteUrl: msg.remote_url,
+          cards: [],
+          toolCalls: [],
+          pins: [],
+          mapCenter: null,
+          transcript: '',
+          detection: null,
+          agentState: 'idle',
+        }))
         break
       case 'audio_chunk':
         playChunk(msg.data)
@@ -166,8 +179,12 @@ export function useDashboardWs(): DashboardState & { sendQuery: (image: string |
 
   const sendQuery = useCallback((image: string | null, text: string) => {
     const ws = wsRef.current
+    console.log('[ws] sendQuery called:', { hasImage: !!image, imageLen: image?.length, text, wsReady: ws?.readyState === WebSocket.OPEN })
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'dashboard_query', image, text }))
+      console.log('[ws] dashboard_query sent')
+    } else {
+      console.warn('[ws] sendQuery: WebSocket not open, message not sent')
     }
   }, [])
 

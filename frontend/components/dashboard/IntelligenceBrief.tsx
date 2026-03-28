@@ -15,6 +15,7 @@ interface IntelligenceBriefProps {
   remoteUrl: string | null
   remoteConnected: boolean
   onSendQuery?: (text: string) => void
+  hasImage?: boolean
 }
 
 const STATE_LABEL: Record<AgentState, string> = {
@@ -40,6 +41,7 @@ export default function IntelligenceBrief({
   remoteUrl,
   remoteConnected,
   onSendQuery,
+  hasImage,
 }: IntelligenceBriefProps) {
   const stateColor = STATE_COLOR[agentState]
   const stateLabel = STATE_LABEL[agentState]
@@ -155,7 +157,14 @@ export default function IntelligenceBrief({
       {/* Text query input */}
       {!remoteConnected && onSendQuery && (
         <div className="border-t border-border px-5 py-3">
-          <p className="font-mono text-[8px] tracking-[0.2em] text-muted mb-2">ASK A QUESTION</p>
+          <div className="flex items-center gap-2 mb-2">
+            <p className="font-mono text-[8px] tracking-[0.2em] text-muted">ASK A QUESTION</p>
+            {hasImage && (
+              <span className="font-mono text-[7px] tracking-wider px-1.5 py-0.5 rounded bg-green/15 border border-green/30 text-green">
+                IMAGE ATTACHED
+              </span>
+            )}
+          </div>
           <form
             onSubmit={(e) => {
               e.preventDefault()

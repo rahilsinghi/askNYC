@@ -93,6 +93,7 @@ export default function DashboardPage() {
         remoteUrl={ws.remoteUrl}
         remoteConnected={ws.remoteConnected}
         onSendQuery={isLive ? handleSendQuery : undefined}
+        hasImage={!!uploadedImage}
       />
     </div>
   )
