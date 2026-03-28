@@ -1,107 +1,101 @@
-'use client'
+'use client';
 
-import { useSearchParams } from 'next/navigation'
-import { Suspense } from 'react'
-import MicButton from '@/components/remote/MicButton'
-import { useRemoteWs } from '@/hooks/useWebSocket'
-
-function RemoteContent() {
-  const params = useSearchParams()
-  const sessionId = params.get('session') || ''
-  const { isConnected, startSpeaking, stopSpeaking } = useRemoteWs(sessionId)
-
-  const streamStats = [
-    { icon: '📹', label: 'CAMERA STREAM', value: '720p · 1fps to agent' },
-    { icon: '🎤', label: 'AUDIO STREAM',  value: '16kHz PCM · live' },
-    { icon: '⚡', label: 'LATENCY',        value: isConnected ? '~50ms' : '—' },
-  ]
-
-  return (
-    <main className="flex flex-col h-screen city-grid overflow-hidden max-w-[390px] mx-auto">
-
-      {/* Top bar */}
-      <div className="h-[60px] flex items-center justify-between px-5 border-b border-border flex-shrink-0">
-        <span className="font-display font-bold text-[16px] text-green tracking-[-0.01em]">ASK NYC</span>
-        <div
-          className="flex items-center gap-1.5 font-mono text-[9px] px-2.5 py-1 rounded-[3px] border"
-          style={{
-            background: isConnected ? 'rgba(132,204,22,0.1)' : 'rgba(239,68,68,0.08)',
-            borderColor: isConnected ? 'rgba(132,204,22,0.25)' : 'rgba(239,68,68,0.2)',
-            color: isConnected ? '#84cc16' : '#ef4444',
-          }}
-        >
-          <div
-            className="w-1.5 h-1.5 rounded-full"
-            style={{
-              background: isConnected ? '#84cc16' : '#ef4444',
-              animation: isConnected ? 'statusPulse 2s ease-in-out infinite' : 'redPulse 1.5s ease-in-out infinite',
-            }}
-          />
-          {isConnected ? 'CONNECTED' : 'CONNECTING...'}
-        </div>
-      </div>
-
-      {/* Camera preview placeholder */}
-      <div className="mx-5 mt-5 rounded-xl border border-border overflow-hidden flex-shrink-0" style={{ height: 200, background: '#09090c', position: 'relative' }}>
-        <video
-          id="camera-preview"
-          autoPlay
-          muted
-          playsInline
-          className="w-full h-full object-cover opacity-70"
-        />
-        {/* Live indicator */}
-        <div className="absolute top-2 left-2 flex items-center gap-1.5">
-          <div className="w-1.5 h-1.5 rounded-full bg-red red-pulse"/>
-          <span className="font-mono text-[8px] text-red tracking-[0.15em]">LIVE</span>
-        </div>
-      </div>
-
-      {/* Stream meta */}
-      <div className="mx-5 mt-2 flex gap-2">
-        {['VIDEO 720p', 'AUDIO 16kHz'].map(label => (
-          <span key={label} className="font-mono text-[8px] text-muted bg-surface border border-border px-2 py-0.5 rounded-[3px]">
-            {label}
-          </span>
-        ))}
-      </div>
-
-      {/* Mic button — center of screen */}
-      <div className="flex-1 flex items-center justify-center">
-        <MicButton
-          onStart={startSpeaking}
-          onStop={stopSpeaking}
-          disabled={!isConnected}
-        />
-      </div>
-
-      {/* Stream stats */}
-      <div className="pb-8 px-5 flex flex-col gap-2.5">
-        {streamStats.map(({ icon, label, value }) => (
-          <div key={label} className="flex items-center gap-2.5">
-            <span className="text-[12px]">{icon}</span>
-            <span className="font-mono text-[9px] tracking-[0.1em] text-muted">{label}</span>
-            <span className="font-mono text-[9px] text-muted ml-auto">{value}</span>
-          </div>
-        ))}
-        <p className="font-mono font-light text-[8px] text-dim text-center mt-2 leading-relaxed">
-          Your camera and voice are processed by Gemini Live.
-          Nothing is stored.
-        </p>
-      </div>
-
-    </main>
-  )
-}
+import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Camera, Mic, X, MoreVertical, MapPin, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 
 export default function RemotePage() {
-  return (
-    <Suspense fallback={
-      <div className="h-screen flex items-center justify-center">
-        <span className="font-mono text-[9px] tracking-[0.2em] text-muted">LOADING...</span>
-      </div>
-    }>
-      <RemoteContent />
-    </Suspense>
-  )
+    return (
+        <main className="relative h-screen w-screen bg-black overflow-hidden flex flex-col">
+            {/* 1. Camera Mock (Background) */}
+            <div className="absolute inset-0 z-0">
+                <video
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className="w-full h-full object-cover opacity-80"
+                    src="https://static.videezy.com/system/resources/previews/000/039/292/original/nyc-night-skyline-timelapse.mp4"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40" />
+            </div>
+
+            {/* 2. Top Chrome */}
+            <header className="relative z-10 p-6 flex items-center justify-between">
+                <Link href="/" className="p-3 rounded-full glass-pill text-white/60 hover:text-white transition-colors">
+                    <X className="w-5 h-5" />
+                </Link>
+                <div className="flex flex-col items-center">
+                    <div className="flex items-center gap-2 mb-1">
+                        <div className="w-2 h-2 rounded-full bg-electric-cyan animate-pulse" />
+                        <span className="text-[10px] font-mono tracking-widest text-white/60 uppercase">Connected</span>
+                    </div>
+                    <p className="text-white font-medium text-sm">Lexington & 42nd St</p>
+                </div>
+                <button className="p-3 rounded-full glass-pill text-white/60 hover:text-white transition-colors">
+                    <MoreVertical className="w-5 h-5" />
+                </button>
+            </header>
+
+            {/* 3. Central Lens Overlay */}
+            <div className="relative z-10 flex-1 flex flex-col items-center justify-center p-8">
+                <div className="relative w-64 h-64 border border-white/10 rounded-full flex items-center justify-center">
+                    {/* Animated Ring */}
+                    <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                        className="absolute inset-0 border border-dashed border-electric-cyan/20 rounded-full"
+                    />
+                    {/* Focus Corners */}
+                    <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-electric-cyan rounded-tl-2xl" />
+                    <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-electric-cyan rounded-tr-2xl" />
+                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-electric-cyan rounded-bl-2xl" />
+                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-electric-cyan rounded-br-2xl" />
+
+                    <div className="flex flex-col items-center">
+                        <Sparkles className="w-8 h-8 text-electric-cyan mb-4 animate-pulse" />
+                        <p className="text-[10px] font-mono tracking-[0.3em] text-white/40 uppercase">Scanning...</p>
+                    </div>
+                </div>
+
+                {/* Floating Identity Prediction */}
+                <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 1, duration: 1 }}
+                    className="mt-12 glass px-6 py-4 rounded-3xl flex items-center gap-4 bg-white/5 backdrop-blur-3xl"
+                >
+                    <div className="w-10 h-10 rounded-full bg-electric-cyan/20 flex items-center justify-center">
+                        <MapPin className="w-4 h-4 text-electric-cyan" />
+                    </div>
+                    <div>
+                        <p className="text-xs text-white/40 mb-0.5">Identified</p>
+                        <p className="text-lg font-medium text-white">The Chrysler Building</p>
+                    </div>
+                </motion.div>
+            </div>
+
+            {/* 4. Bottom Controls */}
+            <footer className="relative z-10 p-12 flex flex-col items-center gap-8">
+                <p className="text-center text-white/60 text-lg max-w-xs font-light italic">
+                    "Point at a building and ask a question about its history or status."
+                </p>
+
+                <div className="flex items-center gap-10">
+                    <button className="p-4 rounded-full border border-white/10 text-white/40 hover:text-white transition-colors">
+                        <Camera className="w-6 h-6" />
+                    </button>
+
+                    <button className="w-20 h-20 rounded-full bg-electric-cyan flex items-center justify-center shadow-[0_0_50px_rgba(64,224,208,0.4)] animate-pulse-cyan">
+                        <Mic className="w-8 h-8 text-midnight fill-midnight" />
+                    </button>
+
+                    <button className="p-4 rounded-full border border-white/10 text-white/40 hover:text-white transition-colors">
+                        <Sparkles className="w-6 h-6" />
+                    </button>
+                </div>
+            </footer>
+        </main>
+    );
 }
