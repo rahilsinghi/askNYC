@@ -1,0 +1,127 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700&display=swap');
+@import 'mapbox-gl/dist/mapbox-gl.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg:       #0c0c0f;
+  --bg2:      #111115;
+  --surface:  #17171c;
+  --surface2: #1e1e24;
+  --border:   #2a2a32;
+  --border2:  #383842;
+  --green:    #84cc16;
+  --amber:    #f59e0b;
+  --blue:     #3b82f6;
+  --red:      #ef4444;
+  --text:     #f4f4f5;
+  --muted:    #71717a;
+  --dim:      #3f3f46;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  height: 100%;
+}
+
+/* Dashboard pages lock scroll; remote page scrolls on mobile */
+body.dashboard-layout {
+  overflow: hidden;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* City grid background utility */
+.city-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Status dot pulse */
+@keyframes statusPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(132, 204, 22, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(132, 204, 22, 0); }
+}
+
+.status-pulse {
+  animation: statusPulse 2s ease-in-out infinite;
+}
+
+/* Red status pulse */
+@keyframes redPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
+}
+
+.red-pulse {
+  animation: redPulse 1.5s ease-in-out infinite;
+}
+
+/* Detection box border pulse */
+@keyframes boxPulse {
+  0%, 100% { border-color: #84cc16; box-shadow: 0 0 12px rgba(132,204,22,0.3), inset 0 0 12px rgba(132,204,22,0.05); }
+  50% { border-color: rgba(132,204,22,0.5); box-shadow: 0 0 20px rgba(132,204,22,0.15); }
+}
+
+.detection-box {
+  animation: boxPulse 2s ease-in-out infinite;
+}
+
+/* Map dot ring */
+@keyframes ringOut {
+  0% { transform: translate(-50%,-50%) scale(0.8); opacity: 0.6; }
+  100% { transform: translate(-50%,-50%) scale(2.2); opacity: 0; }
+}
+
+/* Mic button active pulse */
+@keyframes micPulse {
+  0% { box-shadow: 0 0 0 0 rgba(132,204,22,0.5); }
+  100% { box-shadow: 0 0 0 16px rgba(132,204,22,0); }
+}
+
+.mic-active {
+  animation: micPulse 1s ease-out infinite;
+}
+
+/* Slide in from right */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.slide-in { animation: slideIn 0.35s ease-out forwards; }
+
+/* Fade up */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-up { animation: fadeUp 0.5s ease-out forwards; }
+
+/* Live badge pulse */
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+
+.live-badge { animation: livePulse 2s ease-in-out infinite; }
+
+/* Tool badge pending shimmer */
+@keyframes shimmer {
+  0% { opacity: 0.4; }
+  50% { opacity: 0.9; }
+  100% { opacity: 0.4; }
+}
+
+.tool-pending { animation: shimmer 1.2s ease-in-out infinite; }
