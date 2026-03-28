@@ -269,7 +269,7 @@ The model is instructed to call `investigate_location()` for EVERY question, cho
 - "What trains?" → `transit`
 - General → `general`
 
-**Model:** `gemini-live-2.5-flash-native-audio`
+**Model:** `gemini-2.5-flash-native-audio-latest` (stable live audio model; `gemini-3.1-flash-live-preview` exists but is unstable)
 
 ---
 

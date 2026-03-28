@@ -8,7 +8,7 @@ Architecture:
 - LiveRequestQueue relays phone audio/video to Gemini
 - Events dispatched to dashboard via WebSocket callback
 
-Model: gemini-3.1-flash-live-preview (launched March 26, 2026)
+Model: gemini-2.5-flash-native-audio-latest (stable live audio)
 """
 
 import asyncio
@@ -38,7 +38,9 @@ from models.schemas import DataCard, SessionState
 
 # ─── Model Configuration ────────────────────────────────────────────────────
 
-LIVE_MODEL = "gemini-live-2.5-flash-native-audio"
+# gemini-3.1-flash-live-preview exists but returns internal errors (preview instability)
+# gemini-2.5-flash-native-audio-latest is the stable live audio model
+LIVE_MODEL = "gemini-2.5-flash-native-audio-latest"
 
 # ─── System Prompts ──────────────────────────────────────────────────────────
 
