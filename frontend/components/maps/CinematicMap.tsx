@@ -73,10 +73,16 @@ export default function CinematicMap({
     }, [map, center, zoom, highlightCoords, failed]);
 
     useEffect(() => {
-        setOptions({
-            key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
-            v: 'beta',
-        });
+        const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+
+        // Skip Google Maps entirely if no API key — go straight to Mapbox fallback
+        if (!apiKey) {
+            setFailed(true);
+            setLoading(false);
+            return;
+        }
+
+        setOptions({ key: apiKey, v: 'beta' });
 
         const init = async () => {
             setLoading(true);
