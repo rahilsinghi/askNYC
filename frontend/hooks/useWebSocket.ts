@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { WsMessage, DataCard, MapPin, ToolCall, AgentState } from '@/lib/types'
+import { WsMessage, DataCard, MapPin, ToolCall, AgentState, SessionSummary } from '@/lib/types'
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'
 
@@ -17,6 +17,7 @@ export interface DashboardState {
   toolCalls: ToolCall[]
   transcript: string
   detection: { label: string; confidence: number } | null
+  sessionSummary: SessionSummary | null
   remoteConnected: boolean
   isConnected: boolean
 }
@@ -36,6 +37,7 @@ export function useDashboardWs(): DashboardState & { sendQuery: (image: string |
     toolCalls: [],
     transcript: '',
     detection: null,
+    sessionSummary: null,
     remoteConnected: false,
     isConnected: false,
   })
@@ -131,6 +133,11 @@ export function useDashboardWs(): DashboardState & { sendQuery: (image: string |
         break
       case 'agent_state':
         setState(s => ({ ...s, agentState: msg.state }))
+        break
+      case 'session_complete':
+        setState(s => ({ ...s, sessionSummary: msg.session }))
+        break
+      case 'pong':
         break
       case 'remote_connected':
         setState(s => ({ ...s, remoteConnected: true }))

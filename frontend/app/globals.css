@@ -1,7 +1,6 @@
 @import "tailwindcss";
 
 @theme {
-  --color-midnight: #05070a;
   --color-midnight: #07111D;
   --color-deep-navy: #0B1D31;
   --color-road-glow: #294766;

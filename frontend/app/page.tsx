@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import MapCanvas from '@/components/MapCanvas';
 import Sidebar from '@/components/Sidebar';
 import SearchInput from '@/components/SearchInput';
@@ -9,25 +10,64 @@ import EvidenceCard from '@/components/EvidenceCard';
 import BootScreen from '@/components/BootScreen';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function Dashboard() {
+export default function SplashPage() {
+  const router = useRouter();
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [showBoot, setShowBoot] = useState(true);
+  const [systemReady, setSystemReady] = useState(false);
 
   // Stabilize the onMapLoad callback to prevent infinite loops
   const handleMapLoad = useCallback(() => {
     setIsMapLoaded(true);
   }, []);
 
+  // When boot completes, show "SYSTEM READY" then redirect after 1s
+  const handleBootComplete = useCallback(() => {
+    setShowBoot(false);
+    setSystemReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!systemReady) return;
+    const timer = setTimeout(() => router.push('/dashboard'), 1000);
+    return () => clearTimeout(timer);
+  }, [systemReady, router]);
+
   // Auto-hide boot screen after 7 seconds even if map isn't perfect
   useEffect(() => {
-    const timer = setTimeout(() => setShowBoot(false), 7000);
+    const timer = setTimeout(() => handleBootComplete(), 7000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [handleBootComplete]);
 
   return (
     <main className="relative w-screen h-screen overflow-hidden bg-midnight">
       <AnimatePresence mode="wait">
-        {showBoot && <BootScreen onComplete={() => setShowBoot(false)} />}
+        {showBoot && <BootScreen onComplete={handleBootComplete} />}
+      </AnimatePresence>
+
+      {/* SYSTEM READY overlay — shown briefly before redirect */}
+      <AnimatePresence>
+        {systemReady && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-midnight/80"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className="flex flex-col items-center gap-4"
+            >
+              <p className="text-xs font-mono tracking-[0.5em] text-electric-cyan uppercase text-glow">
+                System Ready
+              </p>
+              <div className="w-12 h-[1px] bg-electric-cyan/40" />
+              <p className="text-[10px] font-mono text-silver-mist/40">Entering dashboard...</p>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       <MapCanvas onMapLoad={handleMapLoad} />
