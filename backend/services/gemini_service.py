@@ -469,9 +469,11 @@ class GeminiSession:
         if event.turn_complete:
             event_info.append('turn_complete')
         if event.input_transcription:
-            event_info.append(f'in_transcript:{event.input_transcription[:40]}')
+            txt = str(event.input_transcription)
+            event_info.append(f'in_transcript:{txt[:40]}')
         if event.output_transcription:
-            event_info.append(f'out_transcript:{event.output_transcription[:40]}')
+            txt = str(event.output_transcription)
+            event_info.append(f'out_transcript:{txt[:40]}')
         if event_info and 'audio' not in event_info:
             print(f"[GeminiSession {self.session_id}] event: {', '.join(event_info)}")
 
@@ -500,7 +502,7 @@ class GeminiSession:
         if event.input_transcription:
             await self.dashboard_send({
                 "type": "transcript",
-                "text": event.input_transcription,
+                "text": str(event.input_transcription),
                 "speaker": "user",
                 "partial": True,
             })
@@ -509,7 +511,7 @@ class GeminiSession:
         if event.output_transcription:
             await self.dashboard_send({
                 "type": "transcript",
-                "text": event.output_transcription,
+                "text": str(event.output_transcription),
                 "speaker": "agent",
                 "partial": bool(event.partial),
             })

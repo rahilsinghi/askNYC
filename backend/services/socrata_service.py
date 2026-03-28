@@ -22,7 +22,7 @@ HEADERS = {"X-App-Token": APP_TOKEN} if APP_TOKEN else {}
 async def _get(endpoint: str, params: dict, base: str = SOCRATA_BASE) -> list[dict]:
     """Execute a Socrata SoQL query. Returns list of result dicts."""
     url = f"{base}/{endpoint}"
-    async with httpx.AsyncClient(timeout=8.0) as client:
+    async with httpx.AsyncClient(timeout=15.0) as client:
         resp = await client.get(url, params=params, headers=HEADERS)
         resp.raise_for_status()
         return resp.json()
