@@ -39,6 +39,7 @@ class SessionService:
         self._sessions.insert(0, {  # newest first
             "session_id": state.session_id,
             "location_name": state.location_name or "Unknown location",
+            "location_address": state.location_address,
             "lat": state.lat,
             "lng": state.lng,
             "started_at": state.started_at.isoformat(),

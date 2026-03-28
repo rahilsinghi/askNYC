@@ -88,11 +88,11 @@ export default function ArchivePage() {
         <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div className="space-y-4">
             <Link
-              href="/"
+              href="/dashboard"
               className="flex items-center gap-2 text-silver-mist/40 hover:text-electric-cyan transition-colors mb-4 group"
             >
               <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-              <span className="text-xs font-mono uppercase tracking-widest">Back to Atlas</span>
+              <span className="text-xs font-mono uppercase tracking-widest">Back</span>
             </Link>
             <h1 className="text-6xl font-medium tracking-tight">Intelligence Archive</h1>
             <p className="text-silver-mist/60 max-w-lg">

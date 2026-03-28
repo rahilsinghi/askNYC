@@ -148,17 +148,21 @@ When called:
 # ─── Dashboard callback ──────────────────────────────────────────────────────
 
 _dashboard_callback: Optional[Callable] = None
+_current_state: Optional["SessionState"] = None
 
 
 async def _push_card_to_dashboard(card_dict: dict):
-    """Push a DataCard to the dashboard if callback is set."""
-    if _dashboard_callback and card_dict:
+    """Push a DataCard to the dashboard and persist to session state."""
+    if card_dict:
         try:
             card = DataCard(**card_dict)
-            await _dashboard_callback({
-                "type": "data_card",
-                "card": card.model_dump(),
-            })
+            if _current_state and card not in _current_state.cards:
+                _current_state.cards.append(card)
+            if _dashboard_callback:
+                await _dashboard_callback({
+                    "type": "data_card",
+                    "card": card.model_dump(),
+                })
         except Exception as e:
             print(f"[investigate] card push error: {e}")
 
@@ -218,6 +222,13 @@ async def _do_investigate(location_name: str, question_topic: str) -> str:
     lat, lng = geo["lat"], geo["lng"]
     address = geo["formatted_address"]
 
+    # Persist location info on session state
+    if _current_state:
+        _current_state.location_name = location_name
+        _current_state.location_address = address
+        _current_state.lat = lat
+        _current_state.lng = lng
+
     if _dashboard_callback:
         await _dashboard_callback({
             "type": "tool_call",
@@ -235,12 +246,18 @@ async def _do_investigate(location_name: str, question_topic: str) -> str:
 
     findings = [f"Location: {address} ({lat:.4f}, {lng:.4f})"]
 
+    def _track_dataset(name: str):
+        if _current_state and name not in _current_state.datasets_queried:
+            _current_state.datasets_queried.append(name)
+
     # 2. Query relevant datasets based on topic
     if question_topic in ("food_safety", "general"):
         if _dashboard_callback:
             await _dashboard_callback({"type": "tool_call", "tool": "query_restaurant_inspections", "status": "pending"})
             await _dashboard_callback({"type": "tool_call", "tool": "query_311_complaints", "status": "pending"})
 
+        _track_dataset("restaurant_inspections")
+        _track_dataset("311_complaints")
         inspection, complaints = await asyncio.gather(
             query_restaurant_inspections(business_name=location_name, lat=lat, lng=lng),
             query_311_complaints(lat=lat, lng=lng),
@@ -268,6 +285,7 @@ async def _do_investigate(location_name: str, question_topic: str) -> str:
                 await _dashboard_callback({"type": "tool_call", "tool": "query_311_complaints", "status": "complete"})
 
     if question_topic in ("safety", "general"):
+        _track_dataset("nypd_incidents")
         if _dashboard_callback:
             await _dashboard_callback({"type": "tool_call", "tool": "query_nypd_incidents", "status": "pending"})
         nypd = await query_nypd_incidents(lat=lat, lng=lng)
@@ -281,6 +299,7 @@ async def _do_investigate(location_name: str, question_topic: str) -> str:
             await _dashboard_callback({"type": "tool_call", "tool": "query_nypd_incidents", "status": "complete"})
 
     if question_topic in ("housing", "general"):
+        _track_dataset("hpd_violations")
         if _dashboard_callback:
             await _dashboard_callback({"type": "tool_call", "tool": "query_hpd_violations", "status": "pending"})
         hpd = await query_hpd_violations(lat=lat, lng=lng)
@@ -294,6 +313,7 @@ async def _do_investigate(location_name: str, question_topic: str) -> str:
             await _dashboard_callback({"type": "tool_call", "tool": "query_hpd_violations", "status": "complete"})
 
     if question_topic == "construction":
+        _track_dataset("dob_permits")
         if _dashboard_callback:
             await _dashboard_callback({"type": "tool_call", "tool": "query_dob_permits", "status": "pending"})
         permits = await query_dob_permits(lat=lat, lng=lng)
@@ -307,6 +327,7 @@ async def _do_investigate(location_name: str, question_topic: str) -> str:
             await _dashboard_callback({"type": "tool_call", "tool": "query_dob_permits", "status": "complete"})
 
     if question_topic == "transit":
+        _track_dataset("subway_entrances")
         if _dashboard_callback:
             await _dashboard_callback({"type": "tool_call", "tool": "query_subway_entrances", "status": "pending"})
         subway = await query_subway_entrances(lat=lat, lng=lng)
@@ -384,8 +405,9 @@ class GeminiSession:
 
     async def start(self):
         """Build agents and initialize the ADK runner."""
-        global _dashboard_callback
+        global _dashboard_callback, _current_state
         _dashboard_callback = self.dashboard_send
+        _current_state = self.state
 
         self._running = True
 

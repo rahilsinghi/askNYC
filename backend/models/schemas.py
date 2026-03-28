@@ -113,6 +113,7 @@ class SessionState(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
     location_name: Optional[str] = None
+    location_address: Optional[str] = None
     cards: list[DataCard] = []
     datasets_queried: list[str] = []
     anomaly_found: bool = False
