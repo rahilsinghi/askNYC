@@ -29,3 +29,7 @@ Thumbs.db
 *.log
 npm-debug.log*
 backend/.next/
+
+# Playwright screenshots
+*.png
+frontend/test-results/
