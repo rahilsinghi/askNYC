@@ -170,7 +170,10 @@ function DashboardContent() {
             <SearchInput
               onSendQuery={handleSendQuery}
               disabled={agentState !== 'idle'}
-              hasImage={!!uploadedImage}
+              hasImage={!!displayImage}
+              uploadedImage={displayImage}
+              onImageUpload={setUploadedImage}
+              onImageClear={() => setUploadedImage(null)}
             />
           </div>
         </div>
