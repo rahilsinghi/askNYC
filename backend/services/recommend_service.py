@@ -295,14 +295,21 @@ Each recommendation should have:
 - lat, lng: Coordinates if available
 
 IMPORTANT:
-- Base ALL scores and reasoning on the actual data provided, never fabricate
+- You MUST produce exactly 3 or 4 distinct recommendations, each with a different name and address
+- Frame each recommendation as a specific place or micro-neighborhood relevant to the query
+  - For food queries: name specific restaurants, cafes, or food spots in the area
+  - For housing queries: name specific streets, blocks, or buildings
+  - For safety queries: name specific neighborhoods or intersections
+  - For construction queries: name specific sites or blocks
+- Vary the scores across recommendations — not all should score the same
+- Each recommendation should highlight DIFFERENT aspects of the data (one might be safest, another best transit, etc.)
+- Base ALL scores and reasoning on the actual data provided, never fabricate numbers
 - If a restaurant has Grade A, that's 90+ hygiene
 - If there are <5 complaints nearby, that's 85+ complaints score
 - If NYPD shows "Low Activity", that's 85+ safety
-- Produce 2-4 recommendations ranked by overall score
-- If data is sparse, still produce at least 1 recommendation with honest scores
+- Rank by overall score descending
 
-Respond with ONLY a JSON array of recommendation objects."""
+Respond with ONLY a JSON array of 3-4 recommendation objects."""
 
 
 async def synthesize_recommendations(
