@@ -12,7 +12,7 @@
 
 ---
 
-## Current Status (as of March 27, 2026)
+## Current Status (as of March 28, 2026)
 
 ### Live Deployment
 
@@ -42,6 +42,10 @@
 | Archive (`/archive`) | Complete | Session grid with demo data fallback |
 | Demo mode | Complete | 3 offline scenarios (restaurant, building, construction) |
 | Design system | Complete | Tailwind config, CSS animations, Google Fonts |
+| Cloud Build CI/CD | **Deployed** | Auto-deploys on push to main via Cloud Build trigger |
+| Splash landing page | **Complete** | Functional search + voice input, session cards, settings panel |
+| Settings panel | **Complete** | Demo toggle (all 3 scenarios), volume slider, mute toggle |
+| Dashboard query params | **Complete** | ?q=, ?location=, ?demo=, ?voice= auto-execute on load |
 | **Cloud Run Backend** | **Deployed** | us-central1, session affinity, CORS configured |
 | **Cloud Run Frontend** | **Deployed** | us-central1, standalone Next.js, env vars baked |
 | **Artifact Registry** | **Created** | `asknyc` repo in us-central1 |
@@ -370,6 +374,26 @@ gcloud run deploy asknyc-frontend --image us-central1-docker.pkg.dev/nth-segment
 ```
 
 **Important:** Cloud Run scales to zero. Hit `/health` once before presenting to warm it up.
+
+---
+
+## CI/CD Pipeline
+
+Auto-deploy is configured via Google Cloud Build. Every push to `main` triggers:
+
+1. Build backend Docker image
+2. Build frontend Docker image (with WS URL + Mapbox token)
+3. Push both to Artifact Registry
+4. Deploy both to Cloud Run
+
+**Config:** `cloudbuild.yaml` in project root
+**Trigger:** `deploy-on-push` (us-central1)
+**Build time:** ~3-4 minutes
+
+Monitor builds:
+```bash
+gcloud builds list --region=us-central1 --project=nth-segment-491623-d2 --limit=5
+```
 
 ---
 

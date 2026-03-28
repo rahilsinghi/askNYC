@@ -1,23 +1,264 @@
 'use client';
 
-import React from 'react';
-import { motion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowRight, Mic, Command, ImagePlus, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-export default function SearchInput() {
-    return (
-        <div className="fixed bottom-10 left-32 right-[480px] z-50">
-            <div className="glass h-14 rounded-full flex items-center px-8 border-electric-cyan/20 shadow-[0_0_40px_rgba(65,228,244,0.1)] group focus-within:border-electric-cyan/40 transition-all">
-                <span className="text-electric-cyan font-bold text-[10px] uppercase tracking-[0.2em] mr-6 whitespace-nowrap">ASK NYC:</span>
-                <input
-                    type="text"
-                    placeholder="Where can I find the best live jazz in Manhattan tonight?..."
-                    className="bg-transparent border-none outline-none flex-1 text-white/90 placeholder:text-white/20 text-sm font-medium"
-                />
-                <button className="w-10 h-10 rounded-full bg-electric-cyan flex items-center justify-center text-midnight shadow-[0_0_20px_rgba(65,228,244,0.4)] hover:scale-105 active:scale-95 transition-all">
-                    <ArrowRight className="w-5 h-5 stroke-[3]" />
-                </button>
-            </div>
+interface SpeechResult {
+  readonly isFinal: boolean;
+  readonly length: number;
+  readonly [index: number]: { readonly transcript: string; readonly confidence: number };
+}
+
+interface SpeechResultList {
+  readonly length: number;
+  readonly [index: number]: SpeechResult;
+}
+
+interface SpeechRecognitionEvent {
+  readonly results: SpeechResultList;
+  readonly resultIndex: number;
+}
+
+interface SpeechRecognitionErrorEvent {
+  readonly error: string;
+}
+
+interface SpeechRecognitionInstance extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+}
+
+interface SearchInputProps {
+  onSendQuery: (query: string, image?: string | null) => void;
+  disabled?: boolean;
+  hasImage?: boolean;
+}
+
+export default function SearchInput({ onSendQuery, disabled }: SearchInputProps) {
+  const [query, setQuery] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = useCallback((file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const size = 768;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const scale = Math.max(size / img.width, size / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const base64 = dataUrl.split(',')[1];
+      if (base64) setAttachedImage(base64);
+    };
+    img.src = URL.createObjectURL(file);
+  }, []);
+
+  const getSpeechRecognition = useCallback((): SpeechRecognitionInstance | null => {
+    const win = window as unknown as Record<string, unknown>;
+    const SpeechRecognition = win.SpeechRecognition ?? win.webkitSpeechRecognition;
+    if (!SpeechRecognition) return null;
+    return new (SpeechRecognition as new () => SpeechRecognitionInstance)();
+  }, []);
+
+  const handleSubmit = useCallback(() => {
+    const trimmed = query.trim();
+    if (!trimmed || disabled) return;
+    onSendQuery(trimmed, attachedImage);
+    setQuery('');
+    setAttachedImage(null);
+  }, [query, onSendQuery, disabled, attachedImage]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSubmit();
+      }
+    },
+    [handleSubmit],
+  );
+
+  const handleMicClick = useCallback(() => {
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = getSpeechRecognition();
+    if (!recognition) {
+      onSendQuery('__VOICE_FALLBACK__', attachedImage);
+      return;
+    }
+
+    recognitionRef.current = recognition;
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let transcript = '';
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setQuery(transcript);
+
+      const lastResult = event.results[event.results.length - 1];
+      if (lastResult.isFinal) {
+        const final = transcript.trim();
+        if (final) {
+          setIsListening(false);
+          onSendQuery(final, attachedImage);
+          setQuery('');
+          setAttachedImage(null);
+        }
+      }
+    };
+
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+
+    recognition.start();
+    setIsListening(true);
+  }, [isListening, getSpeechRecognition, onSendQuery]);
+
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+    };
+  }, []);
+
+  return (
+    <motion.div
+      initial={{ y: 100, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ delay: 1.5, duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+      className="w-full max-w-4xl mx-auto"
+    >
+      {/* Thumbnail preview */}
+      {attachedImage && (
+        <div className="flex items-center gap-3 mb-3 ml-4">
+          <div className="relative group">
+            <img
+              src={`data:image/jpeg;base64,${attachedImage}`}
+              alt="Attached"
+              className="w-14 h-14 rounded-xl object-cover border border-white/20 shadow-[0_0_20px_rgba(0,0,0,0.5)]"
+            />
+            <button
+              onClick={() => setAttachedImage(null)}
+              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+            >
+              <X className="w-3 h-3 text-white" />
+            </button>
+          </div>
+          <span className="text-[10px] font-mono tracking-wider text-cyan-400/70 uppercase">Photo attached — ask your question</span>
         </div>
-    );
+      )}
+
+      <div className={cn(
+        "glass h-16 rounded-full flex items-center px-8 border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.6)] group focus-within:border-white/20 transition-all",
+        disabled && "opacity-50 pointer-events-none"
+      )}>
+        <div className="flex items-center gap-3 mr-6">
+          <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
+            <Command className="w-4 h-4 text-white/40" />
+          </div>
+          <span className="text-white/40 font-black text-[10px] uppercase tracking-[0.2em] hidden sm:inline pt-1">
+            ASK NYC
+          </span>
+          <div className="w-px h-4 bg-white/10 mx-2 hidden sm:block" />
+        </div>
+
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={attachedImage ? "Ask about this location..." : "Identify active Manhattan jazz circuits..."}
+          className="bg-transparent border-none outline-none flex-1 text-white text-base font-light placeholder:text-white/10 tracking-wide font-mono"
+        />
+
+        <div className="flex items-center gap-3 ml-2">
+          {/* Image upload button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className={cn(
+              "w-9 h-9 rounded-full flex items-center justify-center transition-all",
+              attachedImage
+                ? "text-cyan-400 bg-cyan-400/10 border border-cyan-400/30"
+                : "text-white/25 hover:text-white/60 hover:bg-white/5"
+            )}
+            aria-label="Upload image"
+          >
+            <ImagePlus className="w-4 h-4" />
+          </button>
+
+          {/* Mic button */}
+          <button
+            onClick={handleMicClick}
+            className="relative w-9 h-9 rounded-full flex items-center justify-center text-white/25 hover:text-white/60 transition-all"
+            aria-label={isListening ? 'Stop listening' : 'Start voice input'}
+          >
+            <Mic className="w-4 h-4" />
+            <AnimatePresence>
+              {isListening && (
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1.6, opacity: 0 }}
+                  transition={{ duration: 1.2, repeat: Infinity, ease: 'easeOut' }}
+                  className="absolute inset-0 rounded-full bg-health/20"
+                />
+              )}
+            </AnimatePresence>
+          </button>
+
+          <div className="w-[1px] h-6 bg-white/10" />
+
+          {/* Submit button */}
+          <button
+            onClick={handleSubmit}
+            disabled={disabled || !query.trim()}
+            className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 active:scale-95 transition-all disabled:opacity-30"
+            aria-label="Submit"
+          >
+            <ArrowRight className="w-5 h-5 stroke-[3]" />
+          </button>
+        </div>
+      </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const files = e.target.files;
+          if (files && files.length > 0) handleFile(files[0]);
+          e.target.value = '';
+        }}
+      />
+    </motion.div>
+  );
 }

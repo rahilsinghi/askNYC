@@ -31,7 +31,7 @@ Phone Camera + Mic
        |
        | Spoken response + data events
        v
-  Dashboard (Vercel)
+  Dashboard (Cloud Run)
   Map + Data Cards + Voice
 ```
 
@@ -51,7 +51,7 @@ Phone Camera + Mic
 | **Agent Framework** | Google ADK with 5 specialist sub-agents |
 | **Grounding** | Google Search + 7 NYC Open Data datasets (40M+ records) |
 | **Backend** | FastAPI + Python, deployed on Google Cloud Run |
-| **Frontend** | Next.js 15 + React 19, deployed on Vercel |
+| **Frontend** | Next.js 15 + React 19, deployed on Google Cloud Run |
 | **Maps** | Mapbox GL JS (dark theme, animated markers) |
 | **Data** | Socrata API — 311, restaurants, DOB, HPD, NYPD, evictions, subway |
 
@@ -66,6 +66,15 @@ Phone Camera + Mic
 | NYPD Complaint Data | Crime incidents, felony vs misdemeanor |
 | Evictions | Displacement patterns by zip code |
 | Subway Entrances | Nearby stations, train lines, transit access |
+
+## Live URLs
+
+| Service | URL |
+|---------|-----|
+| **Backend** | https://asknyc-backend-901435891859.us-central1.run.app |
+| **Frontend** | https://asknyc-frontend-901435891859.us-central1.run.app |
+
+CI/CD is configured via Google Cloud Build (`cloudbuild.yaml`). Every push to `main` auto-deploys both services to Cloud Run.
 
 ## Quick Start
 
