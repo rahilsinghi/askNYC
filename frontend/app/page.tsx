@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import CinematicMap from '@/components/maps/CinematicMap';
+import MiniMap from '@/components/dashboard/MiniMap';
 import SearchInput from '@/components/SearchInput';
 import EvidenceCard from '@/components/EvidenceCard';
 import BootScreen from '@/components/BootScreen';
@@ -128,7 +128,7 @@ export default function SplashPage() {
       </AnimatePresence>
 
       {/* Map background */}
-      <CinematicMap />
+      <MiniMap />
 
       {/* Ambient vignette for legibility */}
       <div

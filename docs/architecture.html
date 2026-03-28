@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ask NYC — System Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0e;
+    color: white;
+    font-family: 'DM Mono', monospace;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  /* ─── Background Grid ─── */
+  .bg-grid {
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  .bg-glow {
+    position: fixed; z-index: 0;
+    width: 900px; height: 900px;
+    border-radius: 50%;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(6,182,212,0.04) 0%, rgba(132,204,22,0.02) 40%, transparent 70%);
+    animation: breathe 6s ease-in-out infinite;
+  }
+
+  @keyframes breathe {
+    0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  }
+
+  /* ─── Canvas for particles ─── */
+  #particle-canvas {
+    position: fixed; inset: 0; z-index: 1;
+    pointer-events: none;
+  }
+
+  /* ─── Main layout ─── */
+  .arch-container {
+    position: relative; z-index: 2;
+    width: 100vw; height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 0;
+  }
+
+  /* ─── Title ─── */
+  .title-bar {
+    position: fixed; top: 18px; left: 0; right: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: center; gap: 14px;
+  }
+  .title-bar h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px; font-weight: 800;
+    letter-spacing: 0.25em; text-transform: uppercase;
+    background: linear-gradient(135deg, #06b6d4, #84cc16);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .title-bar .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #06b6d4;
+    box-shadow: 0 0 10px rgba(6,182,212,0.6);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { box-shadow: 0 0 10px rgba(6,182,212,0.6); }
+    50% { box-shadow: 0 0 20px rgba(6,182,212,0.9); }
+  }
+  .subtitle {
+    position: fixed; top: 46px; left: 0; right: 0; z-index: 10;
+    text-align: center;
+    font-size: 10px; letter-spacing: 0.3em; color: rgba(255,255,255,0.35);
+    text-transform: uppercase;
+  }
+
+  /* ─── Legend ─── */
+  .legend {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 10;
+    display: flex; gap: 24px; align-items: center;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+  }
+  .legend-label {
+    font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+  }
+
+  /* ─── Node base ─── */
+  .node {
+    position: absolute;
+    background: rgba(15, 15, 22, 0.85);
+    backdrop-filter: blur(20px);
+    border: 2px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    padding: 12px 18px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px;
+    transition: all 0.5s ease;
+    cursor: default;
+  }
+  .node:hover {
+    border-color: rgba(255,255,255,0.25);
+    transform: scale(1.04);
+  }
+  .node .icon {
+    font-size: 20px; margin-bottom: 2px;
+    filter: drop-shadow(0 0 8px currentColor);
+  }
+  .node .label {
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .node .sub {
+    font-size: 8px; color: rgba(255,255,255,0.35);
+    letter-spacing: 0.1em; text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  /* ─── Node variants ─── */
+  .node-frontend {
+    border-color: rgba(6,182,212,0.5);
+    box-shadow: 0 0 30px rgba(6,182,212,0.18), inset 0 0 20px rgba(6,182,212,0.06);
+  }
+  .node-frontend .label { color: #06b6d4; }
+  .node-frontend .icon { color: #06b6d4; }
+
+  .node-backend {
+    border-color: rgba(168,85,247,0.5);
+    box-shadow: 0 0 30px rgba(168,85,247,0.18), inset 0 0 20px rgba(168,85,247,0.06);
+  }
+  .node-backend .label { color: #a855f7; }
+  .node-backend .icon { color: #a855f7; }
+
+  .node-gemini {
+    border-color: rgba(250,204,21,0.5);
+    box-shadow: 0 0 30px rgba(250,204,21,0.18), inset 0 0 20px rgba(250,204,21,0.06);
+  }
+  .node-gemini .label { color: #facc15; }
+  .node-gemini .icon { color: #facc15; }
+
+  .node-socrata {
+    border-color: rgba(132,204,22,0.45);
+    box-shadow: 0 0 28px rgba(132,204,22,0.15), inset 0 0 15px rgba(132,204,22,0.05);
+  }
+  .node-socrata .label { color: #84cc16; }
+  .node-socrata .icon { color: #84cc16; }
+
+  .node-maps {
+    border-color: rgba(59,130,246,0.5);
+    box-shadow: 0 0 30px rgba(59,130,246,0.18), inset 0 0 20px rgba(59,130,246,0.06);
+  }
+  .node-maps .label { color: #3b82f6; }
+  .node-maps .icon { color: #3b82f6; }
+
+  /* ─── Hub node ─── */
+  .node-hub {
+    border-color: rgba(168,85,247,0.6);
+    box-shadow: 0 0 50px rgba(168,85,247,0.25), inset 0 0 30px rgba(168,85,247,0.08);
+    padding: 16px 24px;
+    border-radius: 16px;
+    border-width: 2.5px;
+  }
+  .node-hub .label { font-size: 13px; font-weight: 500; color: #a855f7; }
+
+  /* ─── Socrata group ─── */
+  .socrata-group {
+    position: absolute;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .socrata-mini {
+    background: rgba(15, 15, 22, 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(132,204,22,0.2);
+    border-radius: 6px;
+    padding: 4px 8px;
+    display: flex; align-items: center; gap: 5px;
+    box-shadow: 0 0 12px rgba(132,204,22,0.06);
+    transition: all 0.3s;
+  }
+  .socrata-mini:hover {
+    border-color: rgba(132,204,22,0.4);
+    box-shadow: 0 0 18px rgba(132,204,22,0.15);
+  }
+  .socrata-mini .s-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    flex-shrink: 0;
+    animation: s-pulse 2s ease-in-out infinite;
+  }
+  @keyframes s-pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+  .socrata-mini .s-label {
+    font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: rgba(255,255,255,0.55);
+    white-space: nowrap;
+  }
+  .socrata-mini .s-id {
+    font-size: 7px; color: rgba(132,204,22,0.45);
+    margin-left: auto;
+  }
+
+  /* ─── Pulsing ring on hub ─── */
+  .pulse-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(168,85,247,0.3);
+    animation: ring-expand 3s ease-out infinite;
+    pointer-events: none;
+  }
+  @keyframes ring-expand {
+    0% { width: 30px; height: 30px; opacity: 0.6; }
+    100% { width: 120px; height: 120px; opacity: 0; }
+  }
+
+  /* ─── Protocol badges ─── */
+  .proto-badge {
+    position: absolute;
+    font-size: 8px; font-weight: 500; letter-spacing: 0.15em;
+    padding: 3px 10px; border-radius: 10px;
+    text-transform: uppercase;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .proto-ws {
+    background: rgba(6,182,212,0.15); color: rgba(6,182,212,0.8);
+    border: 1px solid rgba(6,182,212,0.3);
+  }
+  .proto-sse {
+    background: rgba(132,204,22,0.15); color: rgba(132,204,22,0.8);
+    border: 1px solid rgba(132,204,22,0.3);
+  }
+  .proto-http {
+    background: rgba(59,130,246,0.15); color: rgba(59,130,246,0.8);
+    border: 1px solid rgba(59,130,246,0.3);
+  }
+  .proto-adk {
+    background: rgba(250,204,21,0.15); color: rgba(250,204,21,0.8);
+    border: 1px solid rgba(250,204,21,0.3);
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+<canvas id="particle-canvas"></canvas>
+
+<!-- Title -->
+<div class="title-bar">
+  <div class="dot"></div>
+  <h1>Ask NYC</h1>
+  <span style="font-size:12px;letter-spacing:0.25em;color:rgba(255,255,255,0.4);text-transform:uppercase;font-weight:500;">System Architecture</span>
+</div>
+<div class="subtitle">Real-Time Voice + Camera AI Agent &middot; 7 NYC Open Data Sources &middot; Multi-Agent Recommendation Pipeline</div>
+
+<!-- Architecture nodes (positioned by JS) -->
+<div class="arch-container" id="arch">
+
+  <!-- Frontend nodes -->
+  <div class="node node-frontend" id="node-phone">
+    <span class="icon">📱</span>
+    <span class="label">Phone Remote</span>
+    <span class="sub">Camera + Mic</span>
+  </div>
+
+  <div class="node node-frontend" id="node-dashboard">
+    <span class="icon">🖥️</span>
+    <span class="label">Dashboard</span>
+    <span class="sub">Map + Cards + Audio</span>
+  </div>
+
+  <div class="node node-frontend" id="node-ask">
+    <span class="icon">🔍</span>
+    <span class="label">Ask NYC</span>
+    <span class="sub">Recommendations</span>
+  </div>
+
+  <!-- Backend hub -->
+  <div class="node node-hub" id="node-backend">
+    <span class="icon" style="font-size:20px;">⚡</span>
+    <span class="label">FastAPI Backend</span>
+    <span class="sub">WebSocket + SSE + REST</span>
+    <div class="pulse-ring" style="top:50%;left:50%;transform:translate(-50%,-50%)"></div>
+    <div class="pulse-ring" style="top:50%;left:50%;transform:translate(-50%,-50%);animation-delay:1s;"></div>
+  </div>
+
+  <!-- Backend services -->
+  <div class="node node-backend" id="node-gemini-svc">
+    <span class="icon">🧠</span>
+    <span class="label">Gemini Service</span>
+    <span class="sub">ADK Live Session</span>
+  </div>
+
+  <div class="node node-backend" id="node-recommend-svc">
+    <span class="icon">🎯</span>
+    <span class="label">Recommend Service</span>
+    <span class="sub">Multi-Agent Pipeline</span>
+  </div>
+
+  <div class="node node-backend" id="node-socrata-svc">
+    <span class="icon">📊</span>
+    <span class="label">Socrata Service</span>
+    <span class="sub">7 Query Functions</span>
+  </div>
+
+  <!-- External: Gemini APIs -->
+  <div class="node node-gemini" id="node-gemini-live">
+    <span class="icon">✨</span>
+    <span class="label">Gemini Live</span>
+    <span class="sub">2.5 Flash Native Audio</span>
+  </div>
+
+  <div class="node node-gemini" id="node-gemini-text">
+    <span class="icon">💬</span>
+    <span class="label">Gemini Flash</span>
+    <span class="sub">Parse + Synthesize</span>
+  </div>
+
+  <!-- External: Google Maps -->
+  <div class="node node-maps" id="node-geocode">
+    <span class="icon">📍</span>
+    <span class="label">Google Maps</span>
+    <span class="sub">Geocoding API</span>
+  </div>
+
+  <!-- Socrata datasets -->
+  <div class="socrata-group" id="socrata-group">
+    <div class="socrata-mini" style="animation-delay:0s"><div class="s-dot" style="background:#84cc16;box-shadow:0 0 6px #84cc16"></div><span class="s-label">Restaurant Inspections</span><span class="s-id">43nn</span></div>
+    <div class="socrata-mini" style="animation-delay:0.15s"><div class="s-dot" style="background:#f59e0b;box-shadow:0 0 6px #f59e0b"></div><span class="s-label">311 Complaints</span><span class="s-id">erm2</span></div>
+    <div class="socrata-mini" style="animation-delay:0.3s"><div class="s-dot" style="background:#3b82f6;box-shadow:0 0 6px #3b82f6"></div><span class="s-label">DOB Permits</span><span class="s-id">ipu4</span></div>
+    <div class="socrata-mini" style="animation-delay:0.45s"><div class="s-dot" style="background:#f59e0b;box-shadow:0 0 6px #f59e0b"></div><span class="s-label">HPD Violations</span><span class="s-id">wvxf</span></div>
+    <div class="socrata-mini" style="animation-delay:0.6s"><div class="s-dot" style="background:#ef4444;box-shadow:0 0 6px #ef4444"></div><span class="s-label">NYPD Incidents</span><span class="s-id">5uac</span></div>
+    <div class="socrata-mini" style="animation-delay:0.75s"><div class="s-dot" style="background:#a855f7;box-shadow:0 0 6px #a855f7"></div><span class="s-label">Evictions</span><span class="s-id">6z8x</span></div>
+    <div class="socrata-mini" style="animation-delay:0.9s"><div class="s-dot" style="background:#06b6d4;box-shadow:0 0 6px #06b6d4"></div><span class="s-label">Subway Entrances</span><span class="s-id">i9wp</span></div>
+  </div>
+
+  <!-- Protocol badges -->
+  <div class="proto-badge proto-ws" id="badge-ws1">WebSocket</div>
+  <div class="proto-badge proto-ws" id="badge-ws2">WebSocket</div>
+  <div class="proto-badge proto-sse" id="badge-sse">SSE Stream</div>
+  <div class="proto-badge proto-adk" id="badge-adk">ADK Live</div>
+  <div class="proto-badge proto-http" id="badge-http">HTTP / SoQL</div>
+  <div class="proto-badge proto-http" id="badge-geocode">HTTP</div>
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#06b6d4;box-shadow:0 0 8px rgba(6,182,212,0.5)"></div>
+    <span class="legend-label">Live Voice Pipeline</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#84cc16;box-shadow:0 0 8px rgba(132,204,22,0.5)"></div>
+    <span class="legend-label">Recommend Pipeline</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#facc15;box-shadow:0 0 8px rgba(250,204,21,0.5)"></div>
+    <span class="legend-label">Gemini AI</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#a855f7;box-shadow:0 0 8px rgba(168,85,247,0.5)"></div>
+    <span class="legend-label">Backend Services</span>
+  </div>
+</div>
+
+<script>
+// ─── Layout: position nodes ─────────────────────────────────────────────
+const W = window.innerWidth, H = window.innerHeight;
+const cx = W / 2, cy = H / 2;
+
+// Symmetric layout — all rows centered on cx
+const row1 = 100;                    // Frontend row
+const row2 = cy - 40;               // Backend hub
+const row3 = cy + 20;               // Backend services
+const row4 = cy + 140;              // Socrata center
+const row5 = cy + 210;              // External APIs (bottom)
+const spread = 300;                  // Horizontal spread from center
+
+const positions = {
+  // Frontend (top row — equal spacing, same y)
+  'node-phone':       { x: cx - spread, y: row1 },
+  'node-dashboard':   { x: cx,          y: row1 },
+  'node-ask':         { x: cx + spread, y: row1 },
+
+  // Backend hub (center)
+  'node-backend':     { x: cx,          y: row2 },
+
+  // Backend services (symmetric left/right + center below)
+  'node-gemini-svc':    { x: cx - spread,     y: row3 },
+  'node-recommend-svc': { x: cx + spread,     y: row3 },
+  'node-socrata-svc':   { x: cx,              y: row4 },
+
+  // External APIs (bottom — symmetric: left pair, right pair)
+  'node-gemini-live':  { x: cx - spread - 60, y: row5 },
+  'node-geocode':      { x: cx - 100,         y: row5 },
+  'node-gemini-text':  { x: cx + spread + 60, y: row5 },
+
+  // Socrata group — right of Socrata Service, same row
+  'socrata-group':     { x: cx + 200,         y: row4 - 10 },
+
+  // Protocol badges — positioned along their connections
+  'badge-ws1':   { x: cx - 170, y: (row1 + row2) / 2 },
+  'badge-ws2':   { x: cx + 20,  y: (row1 + row2) / 2 },
+  'badge-sse':   { x: cx + spread - 20, y: (row1 + row2) / 2 },
+  'badge-adk':   { x: cx - spread - 50, y: (row3 + row5) / 2 },
+  'badge-http':  { x: cx + 20,  y: (row4 + row5) / 2 },
+  'badge-geocode': { x: cx - spread + 80, y: (row3 + row5) / 2 },
+};
+
+Object.entries(positions).forEach(([id, {x, y}]) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  el.style.left = (x - rect.width / 2) + 'px';
+  el.style.top = (y - rect.height / 2) + 'px';
+});
+
+// ─── Particle system ────────────────────────────────────────────────────
+const canvas = document.getElementById('particle-canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = W; canvas.height = H;
+
+function getCenter(id) {
+  const el = document.getElementById(id);
+  if (!el) return { x: 0, y: 0 };
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}
+
+// Define connections: [from, to, color, speed, count]
+const connections = [
+  // Live pipeline (cyan)
+  ['node-phone',       'node-backend',      '#06b6d4', 0.008, 3],
+  ['node-backend',     'node-dashboard',    '#06b6d4', 0.008, 3],
+  ['node-backend',     'node-gemini-svc',   '#a855f7', 0.007, 2],
+  ['node-gemini-svc',  'node-gemini-live',  '#facc15', 0.006, 2],
+  ['node-gemini-svc',  'node-socrata-svc',  '#a855f7', 0.007, 2],
+
+  // Recommend pipeline (green)
+  ['node-ask',         'node-backend',      '#84cc16', 0.008, 3],
+  ['node-backend',     'node-recommend-svc','#84cc16', 0.007, 2],
+  ['node-recommend-svc','node-gemini-text', '#facc15', 0.006, 2],
+  ['node-recommend-svc','node-socrata-svc', '#84cc16', 0.007, 2],
+
+  // Socrata to datasets
+  ['node-socrata-svc', 'socrata-group',     '#84cc16', 0.006, 3],
+
+  // Geocoding
+  ['node-socrata-svc', 'node-geocode',      '#3b82f6', 0.006, 2],
+  ['node-gemini-svc',  'node-geocode',      '#3b82f6', 0.006, 1],
+
+  // Return flows (dimmer, reverse)
+  ['node-gemini-live', 'node-gemini-svc',   '#facc1580', 0.005, 1],
+  ['node-gemini-text', 'node-recommend-svc','#facc1580', 0.005, 1],
+  ['socrata-group',    'node-socrata-svc',  '#84cc1680', 0.005, 2],
+  ['node-dashboard',   'node-backend',      '#06b6d480', 0.004, 1],
+];
+
+class Particle {
+  constructor(fromId, toId, color, speed) {
+    this.fromId = fromId;
+    this.toId = toId;
+    this.color = color;
+    this.speed = speed;
+    this.t = Math.random(); // position along path [0,1]
+    this.size = 2.5 + Math.random() * 2;
+    this.trail = [];
+  }
+
+  update() {
+    this.t += this.speed + Math.random() * 0.002;
+    if (this.t > 1) this.t -= 1;
+
+    const from = getCenter(this.fromId);
+    const to = getCenter(this.toId);
+
+    // Curved path via quadratic bezier
+    const midX = (from.x + to.x) / 2 + (to.y - from.y) * 0.15;
+    const midY = (from.y + to.y) / 2 - (to.x - from.x) * 0.15;
+
+    const t = this.t;
+    const mt = 1 - t;
+    this.x = mt * mt * from.x + 2 * mt * t * midX + t * t * to.x;
+    this.y = mt * mt * from.y + 2 * mt * t * midY + t * t * to.y;
+
+    this.trail.push({ x: this.x, y: this.y });
+    if (this.trail.length > 8) this.trail.shift();
+  }
+
+  draw(ctx) {
+    // Trail
+    for (let i = 0; i < this.trail.length; i++) {
+      const alpha = (i / this.trail.length) * 0.3;
+      ctx.beginPath();
+      ctx.arc(this.trail[i].x, this.trail[i].y, this.size * 0.5, 0, Math.PI * 2);
+      ctx.fillStyle = this.color.replace(')', `,${alpha})`).replace('rgb', 'rgba').replace('#', '');
+      // Simpler: use global alpha
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = this.color;
+      ctx.fill();
+    }
+
+    // Head
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+
+    // Glow
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size * 3, 0, Math.PI * 2);
+    const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 3);
+    grad.addColorStop(0, this.color);
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.globalAlpha = 1;
+  }
+}
+
+// Create particles
+const particles = [];
+connections.forEach(([from, to, color, speed, count]) => {
+  for (let i = 0; i < count; i++) {
+    particles.push(new Particle(from, to, color, speed));
+  }
+});
+
+// Draw connection lines (static, dim)
+function drawConnections() {
+  ctx.globalAlpha = 0.22;
+  ctx.lineWidth = 2;
+
+  connections.forEach(([fromId, toId, color]) => {
+    const from = getCenter(fromId);
+    const to = getCenter(toId);
+    const midX = (from.x + to.x) / 2 + (to.y - from.y) * 0.15;
+    const midY = (from.y + to.y) / 2 - (to.x - from.x) * 0.15;
+
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.quadraticCurveTo(midX, midY, to.x, to.y);
+    ctx.strokeStyle = color;
+    ctx.stroke();
+  });
+
+  ctx.globalAlpha = 1;
+}
+
+// Animation loop
+function animate() {
+  ctx.clearRect(0, 0, W, H);
+  drawConnections();
+  particles.forEach(p => { p.update(); p.draw(ctx); });
+  requestAnimationFrame(animate);
+}
+
+animate();
+
+// ─── Staggered node entrance ────────────────────────────────────────────
+document.querySelectorAll('.node, .socrata-mini').forEach((el, i) => {
+  el.style.opacity = '0';
+  el.style.transform += ' translateY(15px)';
+  el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+  setTimeout(() => {
+    el.style.opacity = '1';
+    el.style.transform = el.style.transform.replace('translateY(15px)', 'translateY(0)');
+  }, 200 + i * 80);
+});
+
+document.querySelectorAll('.proto-badge').forEach((el, i) => {
+  el.style.opacity = '0';
+  el.style.transition = 'opacity 0.5s ease';
+  setTimeout(() => { el.style.opacity = '1'; }, 1200 + i * 100);
+});
+
+// ─── Handle resize ──────────────────────────────────────────────────────
+window.addEventListener('resize', () => location.reload());
+</script>
+</body>
+</html>

@@ -1,0 +1,163 @@
+%%{ init: {
+  "theme": "dark",
+  "themeVariables": {
+    "primaryColor": "#1e1e2e",
+    "primaryTextColor": "#cdd6f4",
+    "primaryBorderColor": "#585b70",
+    "lineColor": "#585b70",
+    "secondaryColor": "#181825",
+    "tertiaryColor": "#11111b",
+    "fontFamily": "DM Mono, monospace",
+    "fontSize": "13px"
+  },
+  "flowchart": { "curve": "basis", "padding": 16 }
+} }%%
+
+flowchart TB
+  %% ═══════════════════════════════════════════
+  %% FRONTEND LAYER
+  %% ═══════════════════════════════════════════
+  subgraph FRONTEND["<b>FRONTEND</b> &mdash; Next.js 15 + TypeScript"]
+    direction LR
+    PHONE["<b>Phone Remote</b><br/>Camera + Mic<br/><i>getUserMedia</i>"]
+    DASH["<b>Dashboard</b><br/>Map + Cards + Audio<br/><i>Mapbox GL</i>"]
+    ASK["<b>Ask NYC</b><br/>Recommendations<br/><i>SSE Client</i>"]
+    SPLASH["<b>Splash</b><br/>Landing + Search<br/><i>Voice Input</i>"]
+  end
+
+  %% ═══════════════════════════════════════════
+  %% BACKEND LAYER
+  %% ═══════════════════════════════════════════
+  subgraph BACKEND["<b>BACKEND</b> &mdash; FastAPI + Python"]
+    direction TB
+
+    subgraph ENDPOINTS["API Endpoints"]
+      direction LR
+      WS_REMOTE["/ws/remote<br/><i>WebSocket</i>"]
+      WS_DASH["/ws/dashboard<br/><i>WebSocket</i>"]
+      API_REC["POST /api/recommend<br/><i>SSE Stream</i>"]
+      API_SESS["GET /sessions<br/><i>REST</i>"]
+    end
+
+    subgraph SERVICES["Core Services"]
+      direction LR
+      GEMINI_SVC["<b>Gemini Service</b><br/>ADK Agent + Live Session<br/>Audio/Video Processing"]
+      REC_SVC["<b>Recommend Service</b><br/>Multi-Agent Pipeline<br/>Parse → Agents → Synthesize"]
+      SOCRATA_SVC["<b>Socrata Service</b><br/>7 Query Functions<br/>SoQL + within_circle()"]
+      GEO_SVC["<b>Geocoding Service</b><br/>Address → lat/lng"]
+      SESS_SVC["<b>Session Service</b><br/>In-Memory JSON Store"]
+    end
+
+    ENDPOINTS --> SERVICES
+  end
+
+  %% ═══════════════════════════════════════════
+  %% GOOGLE PRODUCTS
+  %% ═══════════════════════════════════════════
+  subgraph GOOGLE["<b>GOOGLE AI & CLOUD</b>"]
+    direction TB
+
+    subgraph GEMINI["Gemini AI Models"]
+      direction LR
+      LIVE["<b>Gemini Live</b><br/>2.5 Flash Native Audio<br/><i>Real-time voice + vision</i>"]
+      FLASH["<b>Gemini Flash</b><br/>2.5 Flash Preview<br/><i>JSON structured output</i>"]
+    end
+
+    subgraph ADK_BOX["Google ADK"]
+      direction LR
+      ADK_AGENT["<b>LlmAgent</b><br/>Root Coordinator"]
+      ADK_RUNNER["<b>Runner</b><br/>run_live() BIDI"]
+      ADK_QUEUE["<b>LiveRequestQueue</b><br/>Audio/Video Relay"]
+      ADK_SESSION["<b>InMemorySessionService</b><br/>Session Management"]
+    end
+
+    subgraph MAPS["Google Maps Platform"]
+      GEOCODE_API["<b>Geocoding API</b><br/>maps.googleapis.com<br/><i>Name/Address → Coordinates</i>"]
+    end
+
+    subgraph CLOUD["Google Cloud Platform"]
+      direction LR
+      CLOUD_RUN["<b>Cloud Run</b><br/>us-central1<br/><i>asknyc-backend</i><br/><i>asknyc-frontend</i>"]
+      CLOUD_BUILD["<b>Cloud Build</b><br/>CI/CD Pipeline<br/><i>Auto-deploy on push</i>"]
+      ARTIFACT["<b>Artifact Registry</b><br/>Docker Images<br/><i>us-central1-docker.pkg.dev</i>"]
+      CLOUD_LOG["<b>Cloud Logging</b><br/>Centralized Logs"]
+    end
+  end
+
+  %% ═══════════════════════════════════════════
+  %% NYC OPEN DATA
+  %% ═══════════════════════════════════════════
+  subgraph SOCRATA["<b>NYC OPEN DATA</b> &mdash; Socrata API"]
+    direction LR
+    DS1["Restaurant Inspections<br/><i>43nn-pn8j</i>"]
+    DS2["311 Complaints<br/><i>erm2-nwe9</i>"]
+    DS3["DOB Permits<br/><i>ipu4-2q9a</i>"]
+    DS4["HPD Violations<br/><i>wvxf-dwi5</i>"]
+    DS5["NYPD Incidents<br/><i>5uac-w243</i>"]
+    DS6["Evictions<br/><i>6z8x-wfk4</i>"]
+    DS7["Subway Entrances<br/><i>i9wp-a4ja</i>"]
+  end
+
+  %% ═══════════════════════════════════════════
+  %% CONNECTIONS — Live Voice Pipeline
+  %% ═══════════════════════════════════════════
+  PHONE -- "video frames (JPEG 1fps)<br/>audio (PCM 16kHz)" --> WS_REMOTE
+  WS_DASH -- "audio chunks (PCM 24kHz)<br/>data cards + map events" --> DASH
+
+  GEMINI_SVC <--> ADK_AGENT
+  ADK_AGENT --> ADK_RUNNER
+  ADK_RUNNER <-- "BIDI streaming" --> LIVE
+  ADK_QUEUE -- "relay audio/video" --> ADK_RUNNER
+  ADK_SESSION --> ADK_RUNNER
+
+  %% ═══════════════════════════════════════════
+  %% CONNECTIONS — Recommend Pipeline
+  %% ═══════════════════════════════════════════
+  ASK -- "POST {query}" --> API_REC
+  REC_SVC -- "parse_query()" --> FLASH
+  REC_SVC -- "synthesize()" --> FLASH
+  FLASH -- "JSON structured output" --> REC_SVC
+
+  %% ═══════════════════════════════════════════
+  %% CONNECTIONS — Shared Services
+  %% ═══════════════════════════════════════════
+  GEMINI_SVC --> SOCRATA_SVC
+  REC_SVC -- "asyncio.gather()<br/>parallel queries" --> SOCRATA_SVC
+  GEMINI_SVC --> GEO_SVC
+  REC_SVC --> GEO_SVC
+  GEO_SVC --> GEOCODE_API
+
+  SOCRATA_SVC -- "SoQL HTTP<br/>within_circle()" --> SOCRATA
+
+  %% ═══════════════════════════════════════════
+  %% CONNECTIONS — Deployment
+  %% ═══════════════════════════════════════════
+  CLOUD_BUILD -- "build + push" --> ARTIFACT
+  ARTIFACT -- "deploy image" --> CLOUD_RUN
+  CLOUD_RUN --> CLOUD_LOG
+
+  %% ═══════════════════════════════════════════
+  %% CONNECTIONS — Other
+  %% ═══════════════════════════════════════════
+  SPLASH --> DASH
+  SPLASH --> ASK
+  DASH --> API_SESS
+
+  %% ═══════════════════════════════════════════
+  %% STYLES
+  %% ═══════════════════════════════════════════
+  classDef frontend fill:#0e2a33,stroke:#06b6d4,stroke-width:2px,color:#06b6d4
+  classDef backend fill:#1a1528,stroke:#a855f7,stroke-width:2px,color:#a855f7
+  classDef google fill:#2a2510,stroke:#facc15,stroke-width:2px,color:#facc15
+  classDef cloud fill:#1a1a2e,stroke:#818cf8,stroke-width:2px,color:#818cf8
+  classDef socrata fill:#152210,stroke:#84cc16,stroke-width:2px,color:#84cc16
+  classDef maps fill:#0e1a33,stroke:#3b82f6,stroke-width:2px,color:#3b82f6
+  classDef endpoint fill:#1e1528,stroke:#c084fc,stroke-width:1px,color:#c084fc
+
+  class PHONE,DASH,ASK,SPLASH frontend
+  class GEMINI_SVC,REC_SVC,SOCRATA_SVC,GEO_SVC,SESS_SVC backend
+  class WS_REMOTE,WS_DASH,API_REC,API_SESS endpoint
+  class LIVE,FLASH,ADK_AGENT,ADK_RUNNER,ADK_QUEUE,ADK_SESSION google
+  class CLOUD_RUN,CLOUD_BUILD,ARTIFACT,CLOUD_LOG cloud
+  class DS1,DS2,DS3,DS4,DS5,DS6,DS7 socrata
+  class GEOCODE_API maps

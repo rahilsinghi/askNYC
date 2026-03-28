@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ask NYC — Google Products Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0e;
+    color: white;
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  .bg-grid {
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  .bg-glow-1 {
+    position: fixed; z-index: 0;
+    width: 600px; height: 600px; border-radius: 50%;
+    top: 30%; left: 20%;
+    background: radial-gradient(circle, rgba(66,133,244,0.06) 0%, transparent 70%);
+    animation: float1 8s ease-in-out infinite;
+  }
+  .bg-glow-2 {
+    position: fixed; z-index: 0;
+    width: 500px; height: 500px; border-radius: 50%;
+    top: 40%; right: 15%;
+    background: radial-gradient(circle, rgba(234,67,53,0.04) 0%, transparent 70%);
+    animation: float2 10s ease-in-out infinite;
+  }
+  @keyframes float1 {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(30px, -20px); }
+  }
+  @keyframes float2 {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(-20px, 30px); }
+  }
+
+  canvas { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+
+  .container {
+    position: relative; z-index: 2;
+    width: 100vw; height: 100vh;
+  }
+
+  /* ─── Title ─── */
+  .title {
+    position: fixed; top: 16px; left: 0; right: 0; z-index: 10;
+    text-align: center;
+  }
+  .title h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px; font-weight: 800;
+    letter-spacing: 0.2em;
+    background: linear-gradient(135deg, #4285F4, #34A853, #FBBC05, #EA4335);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    display: inline;
+  }
+  .title .badge {
+    display: inline-block;
+    margin-left: 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px; letter-spacing: 0.2em;
+    padding: 3px 10px; border-radius: 10px;
+    background: rgba(66,133,244,0.12); color: rgba(66,133,244,0.7);
+    border: 1px solid rgba(66,133,244,0.2);
+    vertical-align: middle;
+  }
+  .title p {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px; letter-spacing: 0.25em; color: rgba(255,255,255,0.3);
+    text-transform: uppercase; margin-top: 6px;
+  }
+
+  /* ─── Nodes ─── */
+  .node {
+    position: absolute;
+    background: rgba(12, 12, 18, 0.9);
+    backdrop-filter: blur(20px);
+    border-radius: 14px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px;
+    transition: all 0.4s ease;
+    cursor: default;
+  }
+  .node:hover { transform: scale(1.05); }
+
+  .node .icon { font-size: 22px; margin-bottom: 3px; }
+  .node .label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .node .sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 7.5px; letter-spacing: 0.08em; text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .node .detail {
+    font-size: 7px; color: rgba(255,255,255,0.25);
+    letter-spacing: 0.05em; margin-top: 2px;
+    white-space: nowrap;
+  }
+
+  /* Google Blue */
+  .g-blue {
+    border: 2px solid rgba(66,133,244,0.5);
+    box-shadow: 0 0 30px rgba(66,133,244,0.15), inset 0 0 20px rgba(66,133,244,0.05);
+    padding: 14px 20px;
+  }
+  .g-blue .label { color: #4285F4; }
+  .g-blue .sub { color: rgba(66,133,244,0.5); }
+
+  /* Google Red */
+  .g-red {
+    border: 2px solid rgba(234,67,53,0.5);
+    box-shadow: 0 0 30px rgba(234,67,53,0.15), inset 0 0 20px rgba(234,67,53,0.05);
+    padding: 14px 20px;
+  }
+  .g-red .label { color: #EA4335; }
+  .g-red .sub { color: rgba(234,67,53,0.5); }
+
+  /* Google Green */
+  .g-green {
+    border: 2px solid rgba(52,168,83,0.5);
+    box-shadow: 0 0 30px rgba(52,168,83,0.15), inset 0 0 20px rgba(52,168,83,0.05);
+    padding: 14px 20px;
+  }
+  .g-green .label { color: #34A853; }
+  .g-green .sub { color: rgba(52,168,83,0.5); }
+
+  /* Google Yellow */
+  .g-yellow {
+    border: 2px solid rgba(251,188,5,0.5);
+    box-shadow: 0 0 30px rgba(251,188,5,0.15), inset 0 0 20px rgba(251,188,5,0.05);
+    padding: 14px 20px;
+  }
+  .g-yellow .label { color: #FBBC05; }
+  .g-yellow .sub { color: rgba(251,188,5,0.5); }
+
+  /* App nodes (cyan) */
+  .app-node {
+    border: 2px solid rgba(6,182,212,0.45);
+    box-shadow: 0 0 25px rgba(6,182,212,0.12), inset 0 0 15px rgba(6,182,212,0.04);
+    padding: 12px 18px;
+  }
+  .app-node .label { color: #06b6d4; }
+  .app-node .sub { color: rgba(6,182,212,0.45); }
+
+  /* Data nodes (lime) */
+  .data-node {
+    border: 2px solid rgba(132,204,22,0.45);
+    box-shadow: 0 0 25px rgba(132,204,22,0.12), inset 0 0 15px rgba(132,204,22,0.04);
+    padding: 12px 18px;
+  }
+  .data-node .label { color: #84cc16; }
+  .data-node .sub { color: rgba(132,204,22,0.45); }
+
+  /* Hub */
+  .hub-node {
+    border: 2.5px solid rgba(168,85,247,0.55);
+    box-shadow: 0 0 45px rgba(168,85,247,0.2), inset 0 0 25px rgba(168,85,247,0.06);
+    padding: 16px 24px;
+  }
+  .hub-node .label { color: #a855f7; font-size: 12px; }
+  .hub-node .sub { color: rgba(168,85,247,0.5); }
+
+  /* ─── Google product tag ─── */
+  .g-tag {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 6.5px; font-weight: 600;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 6px;
+    margin-top: 4px;
+  }
+  .g-tag-blue { background: rgba(66,133,244,0.15); color: rgba(66,133,244,0.7); border: 1px solid rgba(66,133,244,0.2); }
+  .g-tag-red { background: rgba(234,67,53,0.15); color: rgba(234,67,53,0.7); border: 1px solid rgba(234,67,53,0.2); }
+  .g-tag-green { background: rgba(52,168,83,0.15); color: rgba(52,168,83,0.7); border: 1px solid rgba(52,168,83,0.2); }
+  .g-tag-yellow { background: rgba(251,188,5,0.15); color: rgba(251,188,5,0.7); border: 1px solid rgba(251,188,5,0.2); }
+
+  /* ─── Section labels ─── */
+  .section-label {
+    position: absolute;
+    font-family: 'DM Mono', monospace;
+    font-size: 8px; font-weight: 600;
+    letter-spacing: 0.3em; text-transform: uppercase;
+    padding: 4px 12px; border-radius: 8px;
+    z-index: 5;
+  }
+
+  /* ─── Legend ─── */
+  .legend {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10;
+    display: flex; gap: 28px; align-items: center;
+  }
+  .legend-item { display: flex; align-items: center; gap: 7px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .legend-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 8px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+  }
+
+  /* ─── Pulse ring ─── */
+  .pulse-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(168,85,247,0.25);
+    animation: ring-expand 3.5s ease-out infinite;
+    pointer-events: none;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+  }
+  @keyframes ring-expand {
+    0% { width: 30px; height: 30px; opacity: 0.5; }
+    100% { width: 140px; height: 140px; opacity: 0; }
+  }
+
+  /* ─── Count badge ─── */
+  .count-badge {
+    position: absolute; top: -8px; right: -8px;
+    width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px; font-weight: 700;
+    z-index: 3;
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow-1"></div>
+<div class="bg-glow-2"></div>
+<canvas id="canvas"></canvas>
+
+<div class="title">
+  <h1>ASK NYC</h1>
+  <span class="badge">Google Products Map</span>
+  <p>Every Google API, Model, and Cloud Service powering the platform</p>
+</div>
+
+<div class="container" id="arch">
+
+  <!-- ═══ Section Labels ═══ -->
+  <div class="section-label" id="lbl-app" style="background:rgba(6,182,212,0.08);color:rgba(6,182,212,0.5);border:1px solid rgba(6,182,212,0.15);">Application</div>
+  <div class="section-label" id="lbl-google" style="background:rgba(66,133,244,0.08);color:rgba(66,133,244,0.5);border:1px solid rgba(66,133,244,0.15);">Google AI + Cloud</div>
+  <div class="section-label" id="lbl-data" style="background:rgba(132,204,22,0.08);color:rgba(132,204,22,0.5);border:1px solid rgba(132,204,22,0.15);">NYC Open Data</div>
+
+  <!-- ═══ Application Layer ═══ -->
+  <div class="node app-node" id="n-phone">
+    <span class="icon">📱</span>
+    <span class="label">Phone Remote</span>
+    <span class="sub">Camera + Mic Input</span>
+  </div>
+  <div class="node app-node" id="n-dash">
+    <span class="icon">🖥️</span>
+    <span class="label">Dashboard</span>
+    <span class="sub">Map + Cards + Audio</span>
+  </div>
+  <div class="node app-node" id="n-ask">
+    <span class="icon">🔍</span>
+    <span class="label">Ask NYC</span>
+    <span class="sub">Recommendations</span>
+  </div>
+
+  <!-- ═══ Backend Hub ═══ -->
+  <div class="node hub-node" id="n-backend">
+    <span class="icon" style="font-size:24px;">⚡</span>
+    <span class="label">FastAPI Backend</span>
+    <span class="sub">WebSocket + SSE + REST</span>
+    <div class="pulse-ring"></div>
+    <div class="pulse-ring" style="animation-delay:1.2s;"></div>
+  </div>
+
+  <!-- ═══ Google AI Models ═══ -->
+  <div class="node g-blue" id="n-gemini-live">
+    <span class="icon">✨</span>
+    <span class="label">Gemini Live</span>
+    <span class="sub">2.5 Flash Native Audio</span>
+    <span class="detail">Real-time voice + vision</span>
+    <span class="g-tag g-tag-blue">Gemini API</span>
+  </div>
+
+  <div class="node g-blue" id="n-gemini-flash">
+    <span class="icon">💬</span>
+    <span class="label">Gemini Flash</span>
+    <span class="sub">2.5 Flash Preview</span>
+    <span class="detail">JSON structured output</span>
+    <span class="g-tag g-tag-blue">Gemini API</span>
+  </div>
+
+  <!-- ═══ Google ADK ═══ -->
+  <div class="node g-yellow" id="n-adk">
+    <span class="icon">🤖</span>
+    <span class="label">Google ADK</span>
+    <span class="sub">Agent Development Kit</span>
+    <span class="detail">LlmAgent + Runner + LiveRequestQueue</span>
+    <span class="g-tag g-tag-yellow">ADK v1.27+</span>
+    <div class="count-badge" style="background:rgba(251,188,5,0.2);color:#FBBC05;border:1px solid rgba(251,188,5,0.3);">4</div>
+  </div>
+
+  <!-- ═══ Google Maps ═══ -->
+  <div class="node g-green" id="n-maps">
+    <span class="icon">📍</span>
+    <span class="label">Google Maps</span>
+    <span class="sub">Geocoding API</span>
+    <span class="detail">Name/Address → Coordinates</span>
+    <span class="g-tag g-tag-green">Maps Platform</span>
+  </div>
+
+  <!-- ═══ Google Cloud ═══ -->
+  <div class="node g-red" id="n-cloudrun">
+    <span class="icon">☁️</span>
+    <span class="label">Cloud Run</span>
+    <span class="sub">us-central1</span>
+    <span class="detail">asknyc-backend + asknyc-frontend</span>
+    <span class="g-tag g-tag-red">GCP</span>
+  </div>
+
+  <div class="node g-red" id="n-cloudbuild">
+    <span class="icon">🔧</span>
+    <span class="label">Cloud Build</span>
+    <span class="sub">CI/CD Pipeline</span>
+    <span class="detail">Auto-deploy on git push</span>
+    <span class="g-tag g-tag-red">GCP</span>
+  </div>
+
+  <div class="node g-red" id="n-artifact">
+    <span class="icon">📦</span>
+    <span class="label">Artifact Registry</span>
+    <span class="sub">Docker Images</span>
+    <span class="detail">us-central1-docker.pkg.dev</span>
+    <span class="g-tag g-tag-red">GCP</span>
+  </div>
+
+  <!-- ═══ NYC Open Data ═══ -->
+  <div class="node data-node" id="n-socrata">
+    <span class="icon">📊</span>
+    <span class="label">NYC Open Data</span>
+    <span class="sub">Socrata API &middot; 7 Datasets</span>
+    <span class="detail">SoQL &middot; within_circle() &middot; Free</span>
+    <div class="count-badge" style="background:rgba(132,204,22,0.2);color:#84cc16;border:1px solid rgba(132,204,22,0.3);">7</div>
+  </div>
+
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#4285F4;box-shadow:0 0 8px rgba(66,133,244,0.5)"></div>
+    <span class="legend-label">Gemini AI</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#FBBC05;box-shadow:0 0 8px rgba(251,188,5,0.5)"></div>
+    <span class="legend-label">Google ADK</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#34A853;box-shadow:0 0 8px rgba(52,168,83,0.5)"></div>
+    <span class="legend-label">Maps Platform</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#EA4335;box-shadow:0 0 8px rgba(234,67,53,0.5)"></div>
+    <span class="legend-label">Google Cloud</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#06b6d4;box-shadow:0 0 8px rgba(6,182,212,0.5)"></div>
+    <span class="legend-label">Application</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#84cc16;box-shadow:0 0 8px rgba(132,204,22,0.5)"></div>
+    <span class="legend-label">NYC Data</span>
+  </div>
+</div>
+
+<script>
+const W = window.innerWidth, H = window.innerHeight;
+const cx = W / 2, cy = H / 2;
+
+// Symmetric layout
+const topY = 90;
+const hubY = cy - 60;
+const midY = cy + 40;
+const bottomY = cy + 170;
+const spread = 280;
+
+const positions = {
+  // App layer (top)
+  'n-phone':    { x: cx - spread, y: topY },
+  'n-dash':     { x: cx,          y: topY },
+  'n-ask':      { x: cx + spread, y: topY },
+
+  // Hub
+  'n-backend':  { x: cx,          y: hubY },
+
+  // Google AI (mid — symmetric)
+  'n-adk':          { x: cx - spread - 30, y: midY },
+  'n-gemini-live':  { x: cx - 110,         y: midY },
+  'n-gemini-flash': { x: cx + 110,         y: midY },
+  'n-maps':         { x: cx + spread + 30, y: midY },
+
+  // Bottom row (symmetric)
+  'n-cloudbuild': { x: cx - spread,  y: bottomY },
+  'n-artifact':   { x: cx - 100,     y: bottomY },
+  'n-cloudrun':   { x: cx + 100,     y: bottomY },
+  'n-socrata':    { x: cx + spread,  y: bottomY },
+
+  // Section labels
+  'lbl-app':    { x: 60,  y: topY },
+  'lbl-google': { x: 60,  y: midY },
+  'lbl-data':   { x: W - 140, y: bottomY },
+};
+
+Object.entries(positions).forEach(([id, {x, y}]) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  el.style.left = (x - r.width / 2) + 'px';
+  el.style.top = (y - r.height / 2) + 'px';
+});
+
+// Fix section labels to left-align
+['lbl-app','lbl-google'].forEach(id => {
+  const el = document.getElementById(id);
+  el.style.left = '24px';
+});
+document.getElementById('lbl-data').style.left = '';
+document.getElementById('lbl-data').style.right = '24px';
+
+// ─── Particle system ───
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = W; canvas.height = H;
+
+function getCenter(id) {
+  const el = document.getElementById(id);
+  if (!el) return { x: 0, y: 0 };
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}
+
+// Connections: [from, to, color, speed, count]
+const connections = [
+  // App → Backend
+  ['n-phone',   'n-backend', '#06b6d4', 0.007, 3],
+  ['n-backend', 'n-dash',    '#06b6d4', 0.007, 3],
+  ['n-ask',     'n-backend', '#06b6d4', 0.007, 3],
+
+  // Backend → Google AI
+  ['n-backend', 'n-adk',          '#FBBC05', 0.006, 2],
+  ['n-backend', 'n-gemini-live',  '#4285F4', 0.006, 2],
+  ['n-backend', 'n-gemini-flash', '#4285F4', 0.006, 2],
+  ['n-backend', 'n-maps',         '#34A853', 0.006, 2],
+
+  // ADK ↔ Gemini Live
+  ['n-adk', 'n-gemini-live', '#FBBC05', 0.008, 2],
+
+  // Backend → Data
+  ['n-backend', 'n-socrata', '#84cc16', 0.006, 3],
+
+  // Deployment flow
+  ['n-cloudbuild', 'n-artifact', '#EA4335', 0.005, 2],
+  ['n-artifact',   'n-cloudrun', '#EA4335', 0.005, 2],
+
+  // Return flows
+  ['n-gemini-live',  'n-backend', '#4285F480', 0.004, 1],
+  ['n-gemini-flash', 'n-backend', '#4285F480', 0.004, 1],
+  ['n-socrata',      'n-backend', '#84cc1680', 0.004, 2],
+  ['n-maps',         'n-backend', '#34A85380', 0.004, 1],
+];
+
+class Particle {
+  constructor(fromId, toId, color, speed) {
+    this.fromId = fromId;
+    this.toId = toId;
+    this.color = color;
+    this.speed = speed;
+    this.t = Math.random();
+    this.size = 2.5 + Math.random() * 2;
+    this.trail = [];
+  }
+
+  update() {
+    this.t += this.speed + Math.random() * 0.002;
+    if (this.t > 1) this.t -= 1;
+
+    const from = getCenter(this.fromId);
+    const to = getCenter(this.toId);
+    const midX = (from.x + to.x) / 2 + (to.y - from.y) * 0.12;
+    const midY = (from.y + to.y) / 2 - (to.x - from.x) * 0.12;
+
+    const t = this.t, mt = 1 - t;
+    this.x = mt*mt*from.x + 2*mt*t*midX + t*t*to.x;
+    this.y = mt*mt*from.y + 2*mt*t*midY + t*t*to.y;
+
+    this.trail.push({ x: this.x, y: this.y });
+    if (this.trail.length > 10) this.trail.shift();
+  }
+
+  draw(ctx) {
+    for (let i = 0; i < this.trail.length; i++) {
+      ctx.globalAlpha = (i / this.trail.length) * 0.25;
+      ctx.beginPath();
+      ctx.arc(this.trail[i].x, this.trail[i].y, this.size * 0.4, 0, Math.PI * 2);
+      ctx.fillStyle = this.color;
+      ctx.fill();
+    }
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+
+    ctx.globalAlpha = 0.25;
+    const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 4);
+    grad.addColorStop(0, this.color);
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size * 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+const particles = [];
+connections.forEach(([from, to, color, speed, count]) => {
+  for (let i = 0; i < count; i++) particles.push(new Particle(from, to, color, speed));
+});
+
+function drawLines() {
+  ctx.lineWidth = 2;
+  ctx.globalAlpha = 0.15;
+  connections.forEach(([fromId, toId, color]) => {
+    const from = getCenter(fromId), to = getCenter(toId);
+    const midX = (from.x + to.x) / 2 + (to.y - from.y) * 0.12;
+    const midY = (from.y + to.y) / 2 - (to.x - from.x) * 0.12;
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.quadraticCurveTo(midX, midY, to.x, to.y);
+    ctx.strokeStyle = color;
+    ctx.stroke();
+  });
+  ctx.globalAlpha = 1;
+}
+
+function animate() {
+  ctx.clearRect(0, 0, W, H);
+  drawLines();
+  particles.forEach(p => { p.update(); p.draw(ctx); });
+  requestAnimationFrame(animate);
+}
+animate();
+
+// Staggered entrance
+document.querySelectorAll('.node').forEach((el, i) => {
+  el.style.opacity = '0';
+  el.style.transform += ' translateY(18px)';
+  el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+  setTimeout(() => {
+    el.style.opacity = '1';
+    el.style.transform = el.style.transform.replace('translateY(18px)', 'translateY(0)');
+  }, 150 + i * 70);
+});
+document.querySelectorAll('.section-label').forEach((el, i) => {
+  el.style.opacity = '0';
+  el.style.transition = 'opacity 0.5s ease';
+  setTimeout(() => { el.style.opacity = '1'; }, 800 + i * 100);
+});
+
+window.addEventListener('resize', () => location.reload());
+</script>
+</body>
+</html>

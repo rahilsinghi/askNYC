@@ -69,9 +69,7 @@ export default function DataCard({ card, index }: DataCardProps) {
         {/* Footnote */}
         <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between opacity-20">
           <span className="text-[8px] font-bold uppercase tracking-widest">Dataset: NYC OpenData</span>
-          {card.status === 'active' && (
-            <div className="w-1 h-1 rounded-full bg-cyan-400 animate-pulse" />
-          )}
+          <div className="w-1 h-1 rounded-full bg-cyan-400 animate-pulse" />
         </div>
       </div>
     </motion.div>

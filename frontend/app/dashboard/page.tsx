@@ -3,8 +3,7 @@
 import { useState, useCallback, useEffect, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import CameraFeed from '@/components/dashboard/CameraFeed'
-import CinematicMap from '@/components/maps/CinematicMap'
-import FloatingCards from '@/components/dashboard/FloatingCards'
+import MiniMap from '@/components/dashboard/MiniMap'
 import IntelligenceBrief from '@/components/dashboard/IntelligenceBrief'
 import SearchInput from '@/components/dashboard/SearchInput'
 import DashboardLayout from '@/components/dashboard/DashboardLayout'
@@ -46,9 +45,6 @@ function DashboardContent() {
   const toolCalls = preferDemo ? demo.toolCalls : (isLive ? ws.toolCalls : demo.toolCalls)
   const transcript = preferDemo ? demo.transcript : (isLive ? ws.transcript : demo.transcript)
   const mapCenter = overrideCenter ?? (isLive ? ws.mapCenter : undefined)
-
-  // Focus mode: map zooms in and cards shift when a location is being discussed
-  const isFocusMode = (agentState === 'processing' || agentState === 'speaking') && !!mapCenter
 
   const handleSendQuery = useCallback((text: string) => {
     setLastQuery(text)
@@ -109,13 +105,15 @@ function DashboardContent() {
     <DashboardLayout>
       <div className="relative h-full w-full overflow-hidden">
 
-        {/* ─── Level 0: Cinematic Map Background ──────────────────────────── */}
+        {/* ─── Level 0: Mapbox 3D Map Background ──────────────────────────── */}
         <div className="fixed inset-0 z-0 pointer-events-auto">
-          <CinematicMap
-            center={mapCenter || undefined}
-            highlightCoords={mapCenter}
+          <MiniMap
+            pins={ws.pins}
+            centerLat={mapCenter?.lat}
+            centerLng={mapCenter?.lng}
+            highlightLat={mapCenter?.lat}
+            highlightLng={mapCenter?.lng}
           />
-          <FloatingCards cards={cards} isFocusMode={isFocusMode} />
         </div>
 
         {/* ─── Level 1: UI Overlay ─────────────────────────────────────────── */}
