@@ -6,11 +6,15 @@ All functions are ADK tool-compatible (async, typed returns).
 Docs: https://dev.socrata.com/docs/queries/
 """
 
+import logging
+
 import httpx
 import os
 from datetime import datetime, timedelta
 from typing import Optional
 from models.schemas import DataCard
+
+logger = logging.getLogger(__name__)
 
 SOCRATA_BASE = "https://data.cityofnewyork.us/resource"
 SOCRATA_NY_BASE = "https://data.ny.gov/resource"
@@ -327,7 +331,7 @@ async def _get_nearby_zip(lat: float, lng: float) -> Optional[str]:
             if zips:
                 return max(set(zips), key=zips.count)
     except Exception:
-        pass
+        logger.debug("_get_nearby_zip failed for (%s, %s)", lat, lng, exc_info=True)
     return None
 
 

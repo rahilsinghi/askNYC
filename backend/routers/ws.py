@@ -42,8 +42,10 @@ async def _heartbeat(ws: WebSocket, label: str):
         while True:
             await asyncio.sleep(HEARTBEAT_INTERVAL)
             await ws.send_json({"type": "pong"})
+    except asyncio.CancelledError:
+        logger.debug("Heartbeat cancelled for %s", label)
     except Exception:
-        logger.debug("Heartbeat stopped for %s", label)
+        logger.warning("Heartbeat error for %s", label, exc_info=True)
 
 
 # ─── Dashboard WebSocket ──────────────────────────────────────────────────────

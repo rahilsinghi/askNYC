@@ -383,8 +383,8 @@ class GeminiSession:
         if self._live_queue:
             try:
                 self._live_queue.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                print(f"[GeminiSession {self.session_id}] error closing live queue: {exc}")
 
         self._live_queue = LiveRequestQueue()
         self._session_alive = True
@@ -553,8 +553,8 @@ class GeminiSession:
                                 "type": "data_card",
                                 "card": card.model_dump(),
                             })
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            print(f"[GeminiSession {self.session_id}] DataCard creation failed: {exc} | raw={result}")
 
         # ── Turn complete ────────────────────────────────────────────────
         if event.turn_complete:
