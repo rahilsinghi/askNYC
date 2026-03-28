@@ -250,49 +250,56 @@ export default function MiniMap({ pins = [], centerLat, centerLng, highlightLat,
           .addTo(map)
         highlightMarkerRef.current = marker
 
-        // Highlight the REAL building at these coords via queryRenderedFeatures
-        map.once('moveend', () => {
-          setTimeout(() => {
-            const pixel = map.project([highlightLng, highlightLat])
-            const pad = 20
-            const features = map.queryRenderedFeatures(
-              [[pixel.x - pad, pixel.y - pad], [pixel.x + pad, pixel.y + pad]],
-              { layers: ['3d-buildings'] }
-            )
-            if (features.length === 0) return
-            const seen = new Set<string>()
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const buildingFeatures: any[] = []
-            for (const f of features) {
-              const key = JSON.stringify(f.geometry).slice(0, 80)
-              if (seen.has(key)) continue
-              seen.add(key)
-              buildingFeatures.push({
-                type: 'Feature',
-                properties: { height: f.properties?.height || 20, min_height: f.properties?.min_height || 0 },
-                geometry: f.geometry,
-              })
-            }
-            const data = { type: 'FeatureCollection', features: buildingFeatures }
-            if (map.getSource('search-beacon')) {
-              map.getSource('search-beacon').setData(data)
-            } else {
-              map.addSource('search-beacon', { type: 'geojson', data })
-              map.addLayer({
-                id: 'search-beacon-glow',
-                type: 'fill-extrusion',
-                source: 'search-beacon',
-                paint: {
-                  'fill-extrusion-color': '#41E4F4',
-                  'fill-extrusion-height': ['get', 'height'],
-                  'fill-extrusion-base': ['get', 'min_height'],
-                  'fill-extrusion-opacity': 0.85,
-                  'fill-extrusion-vertical-gradient': true,
-                },
-              })
-            }
-          }, 500)
-        })
+        // Highlight the REAL building at these coords via queryRenderedFeatures.
+        // Fly to location first, then query after tiles load.
+        map.flyTo({ center: [highlightLng, highlightLat], zoom: 16, pitch: 65, duration: 2000, essential: true })
+
+        const queryBuildings = () => {
+          if (!map.isStyleLoaded()) {
+            setTimeout(queryBuildings, 500)
+            return
+          }
+          const pixel = map.project([highlightLng, highlightLat])
+          const pad = 30
+          const features = map.queryRenderedFeatures(
+            [[pixel.x - pad, pixel.y - pad], [pixel.x + pad, pixel.y + pad]],
+            { layers: ['3d-buildings'] }
+          )
+          if (features.length === 0) return
+          const seen = new Set<string>()
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const buildingFeatures: any[] = []
+          for (const f of features) {
+            const key = JSON.stringify(f.geometry).slice(0, 80)
+            if (seen.has(key)) continue
+            seen.add(key)
+            buildingFeatures.push({
+              type: 'Feature',
+              properties: { height: f.properties?.height || 20, min_height: f.properties?.min_height || 0 },
+              geometry: f.geometry,
+            })
+          }
+          const data = { type: 'FeatureCollection', features: buildingFeatures }
+          if (map.getSource('search-beacon')) {
+            map.getSource('search-beacon').setData(data)
+          } else {
+            map.addSource('search-beacon', { type: 'geojson', data })
+            map.addLayer({
+              id: 'search-beacon-glow',
+              type: 'fill-extrusion',
+              source: 'search-beacon',
+              paint: {
+                'fill-extrusion-color': '#41E4F4',
+                'fill-extrusion-height': ['get', 'height'],
+                'fill-extrusion-base': ['get', 'min_height'],
+                'fill-extrusion-opacity': 0.85,
+                'fill-extrusion-vertical-gradient': true,
+              },
+            })
+          }
+        }
+        // Wait for flyTo to finish + tiles to load
+        setTimeout(queryBuildings, 3000)
       }
     }
     updateHighlight()

@@ -146,6 +146,10 @@
   }
 }
 
+/* Camera PiP hover */
+.pip-camera { transition: all 0.3s ease; }
+.pip-camera:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(21, 191, 210, 0.2); }
+
 /* Scan line animation for agent cards */
 @keyframes scan {
   0% { top: 0%; }

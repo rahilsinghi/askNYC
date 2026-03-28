@@ -19,6 +19,7 @@ interface CameraFeedProps {
   mapCenter?: { lat: number; lng: number } | null
   agentState: AgentState
   isFocusMode?: boolean
+  mini?: boolean
 }
 
 export default function CameraFeed({
@@ -29,7 +30,8 @@ export default function CameraFeed({
   onImageClear,
   mapCenter,
   agentState,
-  isFocusMode
+  isFocusMode,
+  mini
 }: CameraFeedProps) {
   const [scanPos, setScanPos] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
@@ -101,6 +103,34 @@ export default function CameraFeed({
     const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000)
     return () => clearInterval(timer)
   }, [])
+
+  // Mini PiP mode
+  if (mini) {
+    return (
+      <div className="relative w-full h-full overflow-hidden bg-[#07111D] cursor-pointer"
+           onClick={() => !uploadedImage && fileInputRef.current?.click()}>
+        {uploadedImage ? (
+          <img src={`data:image/jpeg;base64,${uploadedImage}`} alt="Location" className="w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(20,30,60,0.5) 0%, rgba(7,17,29,1) 80%)' }} />
+        )}
+        <div className="absolute left-0 right-0 pointer-events-none z-10 opacity-40"
+          style={{ top: `${scanPos}%`, height: '1px', background: 'linear-gradient(90deg, transparent 0%, rgba(132,204,22,0.6) 50%, transparent 100%)' }} />
+        <div className="absolute top-2 right-2 z-20">
+          <div className={`w-2 h-2 rounded-full ${remoteConnected || uploadedImage ? 'bg-[#84cc16] shadow-[0_0_6px_#84cc16]' : 'bg-white/20'}`} />
+        </div>
+        {detection && (
+          <div className="absolute bottom-1 left-1 right-1 z-20">
+            <div className="bg-black/70 px-1.5 py-0.5 rounded text-[7px] font-mono text-[#84cc16] tracking-wider truncate">
+              {detection.label.toUpperCase()}
+            </div>
+          </div>
+        )}
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
+          onChange={(e) => { const f = e.target.files; if (f?.[0]) handleFile(f[0]); e.target.value = '' }} />
+      </div>
+    )
+  }
 
   return (
     <div
