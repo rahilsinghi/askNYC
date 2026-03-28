@@ -26,6 +26,7 @@ function DashboardContent() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)
   const [voiceMode, setVoiceMode] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const handleRunDemo = useCallback((scenario: 'all' | 'restaurant' | 'building' | 'construction') => {
     if (scenario === 'all') {
@@ -102,7 +103,7 @@ function DashboardContent() {
           centerLat={ws.mapCenter?.lat}
           centerLng={ws.mapCenter?.lng}
         />
-        <FloatingCards cards={cards} />
+        <FloatingCards cards={cards} sidebarCollapsed={sidebarCollapsed} />
       </div>
 
       {/* ─── Level 1: UI Overlay Layer ───────────────────────────────────────── */}
@@ -110,7 +111,7 @@ function DashboardContent() {
 
         {/* Left Rail: Sidebar */}
         <div className="pointer-events-auto flex-shrink-0">
-          <Sidebar />
+          <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(c => !c)} />
         </div>
 
         {/* Center Canvas: Status + Alerts + Camera + Ask Bar */}

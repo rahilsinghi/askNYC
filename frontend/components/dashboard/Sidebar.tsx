@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
@@ -44,28 +45,68 @@ const NAV = [
   },
 ]
 
-export default function Sidebar() {
+interface SidebarProps {
+  collapsed?: boolean
+  onToggle?: () => void
+}
+
+export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname()
 
   return (
-    <aside className="w-[200px] h-screen glass border-r-0 flex flex-col py-8 z-50">
+    <aside
+      className={clsx(
+        'h-screen glass border-r-0 flex flex-col py-8 z-50 transition-all duration-300 relative',
+        collapsed ? 'w-[56px]' : 'w-[200px]'
+      )}
+    >
+      {/* Toggle button */}
+      <button
+        onClick={onToggle}
+        className="absolute -right-3 top-6 z-50 w-6 h-6 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center hover:border-cyan-400/50 hover:bg-cyan-400/10 transition-all group"
+      >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          className={clsx(
+            'text-white/40 group-hover:text-cyan-400 transition-transform',
+            collapsed ? 'rotate-0' : 'rotate-180'
+          )}
+        >
+          <path d="M9 18l6-6-6-6" />
+        </svg>
+      </button>
 
-      <div className="px-8 mb-12">
+      <div className={clsx('mb-12 transition-all', collapsed ? 'px-3' : 'px-8')}>
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-xl font-bold tracking-tighter font-syne text-white">A+NYC</span>
+          <span className={clsx(
+            'font-bold tracking-tighter font-syne text-white transition-all',
+            collapsed ? 'text-sm' : 'text-xl'
+          )}>
+            {collapsed ? 'A+' : 'A+NYC'}
+          </span>
         </div>
-        <p className="text-[10px] font-bold tracking-[0.3em] text-white/20">INTELLIGENCE_OS</p>
+        {!collapsed && (
+          <p className="text-[10px] font-bold tracking-[0.3em] text-white/20">INTELLIGENCE_OS</p>
+        )}
       </div>
 
-      <nav className="flex flex-col gap-1 px-4">
+      <nav className={clsx('flex flex-col gap-1', collapsed ? 'px-2' : 'px-4')}>
         {NAV.map(({ label, href, icon }) => {
           const active = pathname === href
           return (
             <Link
               key={href}
               href={href}
+              title={collapsed ? label : undefined}
               className={clsx(
-                'flex items-center gap-4 px-4 h-12 rounded-lg font-bold text-[10px] tracking-[0.2em] transition-all group',
+                'flex items-center gap-4 h-12 rounded-lg font-bold text-[10px] tracking-[0.2em] transition-all group',
+                collapsed ? 'justify-center px-0' : 'px-4',
                 active
                   ? 'bg-white/10 text-white shadow-[inset_0_0_12px_rgba(255,255,255,0.05)]'
                   : 'text-white/30 hover:text-white hover:bg-white/5'
@@ -74,7 +115,7 @@ export default function Sidebar() {
               <span className={clsx('transition-transform group-hover:scale-110', active ? 'text-cyan-glow' : 'text-current')}>
                 {icon}
               </span>
-              {label}
+              {!collapsed && label}
             </Link>
           )
         })}
@@ -83,23 +124,24 @@ export default function Sidebar() {
       <div className="flex-1" />
 
       {/* Connection Status */}
-      <div className="mx-6 p-4 rounded-xl bg-white/[0.03] border border-white/5">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 rounded-lg bg-cyan-glow/20 flex items-center justify-center text-cyan-glow">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-            </svg>
+      {!collapsed && (
+        <div className="mx-6 p-4 rounded-xl bg-white/[0.03] border border-white/5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-cyan-glow/20 flex items-center justify-center text-cyan-glow">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold tracking-wider text-white">SECURE</p>
+              <p className="text-[8px] text-white/30">AES-256 ACTIVE</p>
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] font-bold tracking-wider text-white">SECURE</p>
-            <p className="text-[8px] text-white/30">AES-256 ACTIVE</p>
+          <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+            <div className="h-full bg-cyan-glow w-2/3 shadow-[0_0_8px_#15BFD2]" />
           </div>
         </div>
-        <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-          <div className="h-full bg-cyan-glow w-2/3 shadow-[0_0_8px_#15BFD2]" />
-        </div>
-      </div>
-
+      )}
     </aside>
   )
 }
