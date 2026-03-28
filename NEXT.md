@@ -1,7 +1,7 @@
 # Ask NYC — Roadmap & Next Steps
 
 > Everything left to build, organized by priority for the March 27-28 hackathon.
-> Updated: March 27, 2026
+> Updated: March 28, 2026
 
 ---
 
@@ -78,17 +78,21 @@ What needs to happen:
 
 ## Priority 3 — Feature Complete (Nice to have for hackathon)
 
-### 3.1 `/insights` Page — Aggregate Analytics
+### 3.1 `/insights` Page — Aggregate Analytics — DONE
 
-**Status:** Placeholder only (icon + "coming soon")
+**Status:** Complete. Fetches real session data from `/sessions` API.
 **File:** `frontend/app/insights/page.tsx`
 
-Planned features:
-- Aggregate stats across all past sessions (total queries, datasets hit, locations scanned)
+Implemented:
+- ✅ Aggregate stats: total sessions, datasets queried, unique locations, avg cards/session
+- ✅ Cards by Category bar chart (animated, sorted by count)
+- ✅ Most Scanned Location with animated circular display
+- ✅ Loading, error, and empty states
+- ✅ Scrollable layout
+
+Remaining (nice to have):
 - Heat map of queried locations (requires Mapbox)
-- Most common complaint types across all sessions
 - "NYC data pulse" — live ticker of recent 311 complaints city-wide
-- Chart: complaints by category, violations by severity class
 
 ### 3.2 `/sessions` Page — Live Session Management
 
@@ -102,27 +106,32 @@ Planned features:
 - Session duration timer
 - Connected device indicator (phone linked vs. not)
 
-### 3.3 Archive Page Filter Logic
+### 3.3 Archive Page Filter Logic — DONE
 
-**Status:** Search-by-name works, date filters are non-functional
+**Status:** Complete. Fetches real data from `/sessions` API. All filters working.
 **File:** `frontend/app/archive/page.tsx`
 
-What needs to happen:
-- `TODAY` filter: compare session timestamp to current date
-- `THIS WEEK` filter: compare to start of current week
-- `ALL TIME` filter: show all (already works)
-- Sort by: most recent first (already works), most data cards, longest duration
-- Connect to real `/sessions` API endpoint instead of demo data fallback
+Implemented:
+- ✅ `TODAY` filter: compare session timestamp to current date
+- ✅ `THIS WEEK` filter: compare to last 7 days
+- ✅ `ALL TIME` filter: show all
+- ✅ Search by location name and address
+- ✅ Connected to real `/sessions` API endpoint
+- ✅ Shows location_name, location_address, cards count, datasets count, category pills, anomaly badge
 
-### 3.4 Session Persistence
+### 3.4 Session Persistence — DONE
 
-**Status:** In-memory only, lost on backend restart
+**Status:** JSON-file backed. Persists within Cloud Run instance lifetime.
 **File:** `backend/services/session_service.py`
 
-Options (hackathon-appropriate):
-- JSON file on disk (simplest — write on session end, read on startup)
-- Google Cloud Firestore (fits the "Google Cloud" judging requirement)
-- Keep in-memory but add `/sessions/export` endpoint for manual backup
+Implemented:
+- ✅ JSON file at `/tmp/asknyc_sessions.json`
+- ✅ Saves on session end: location_name, location_address, lat, lng, cards, datasets_queried, anomaly_found
+- ✅ Max 50 sessions, newest first
+- ✅ Loads from disk on startup
+
+Remaining (nice to have):
+- Google Cloud Firestore for persistence across Cloud Run restarts
 
 ### 3.5 Gemini Live Reconnection
 
@@ -215,10 +224,14 @@ Referenced in CLAUDE.md project structure but doesn't exist. Should contain:
 ### Backend Modules — Not Started
 | Module | Purpose |
 |--------|---------|
-| `push_map_event` tool | WebSocket message to dashboard for map pin (referenced in CLAUDE.md, logic is in gemini_service.py but not standalone) |
-| Session export/import | Persist sessions across restarts |
 | Health check enhancement | Report Gemini connection status, Socrata reachability |
 | Rate limiter | Protect Socrata calls from rapid-fire tool invocations |
+
+### Backend Modules — Recently Completed
+| Module | Purpose |
+|--------|---------|
+| Session data pipeline | `_do_investigate()` stores location_name, location_address, datasets_queried, cards on SessionState |
+| JSON-file session persistence | Sessions saved to `/tmp/asknyc_sessions.json`, loaded on startup |
 
 ### Frontend Modules — Complete
 | Module | File | Status |
@@ -226,11 +239,11 @@ Referenced in CLAUDE.md project structure but doesn't exist. Should contain:
 | Splash page | `app/page.tsx` | Done |
 | Dashboard layout | `app/dashboard/page.tsx` | Done |
 | Remote phone page | `app/remote/page.tsx` | Done |
-| Archive page | `app/archive/page.tsx` | Done (filters need work) |
+| Archive page | `app/archive/page.tsx` | Done (real data, all filters working) |
 | Dashboard WebSocket hook | `hooks/useWebSocket.ts` | Done |
 | Remote WebSocket hook | `hooks/useWebSocket.ts` | Done |
 | Demo mode | `hooks/useDemoMode.ts` | Done (3 scenarios) |
-| Sidebar nav | `components/dashboard/Sidebar.tsx` | Done |
+| Sidebar nav (collapsible) | `components/dashboard/Sidebar.tsx` | Done |
 | Camera feed + overlay | `components/dashboard/CameraFeed.tsx` | Done |
 | Mini map (CSS) | `components/dashboard/MiniMap.tsx` | Done (needs Mapbox) |
 | Intelligence brief | `components/dashboard/IntelligenceBrief.tsx` | Done |
@@ -243,14 +256,18 @@ Referenced in CLAUDE.md project structure but doesn't exist. Should contain:
 ### Frontend Modules — Not Started
 | Module | Purpose |
 |--------|---------|
-| Mapbox GL integration | Replace CSS map with real interactive map |
-| `/insights` page | Aggregate analytics dashboard |
 | `/sessions` page | Live session management |
-| Audio player hook | `useAudioPlayer.ts` referenced in CLAUDE.md but may not exist as standalone |
-| Camera capture hook | `useCameraCapture.ts` referenced in CLAUDE.md but may not exist as standalone |
-| Archive date filters | TODAY / THIS WEEK filter logic |
 | Error boundary | Graceful handling of WebSocket disconnects, API failures |
-| Loading states | Skeleton screens for archive, insights pages |
+
+### Frontend Modules — Recently Completed
+| Module | Purpose |
+|--------|---------|
+| Mapbox GL integration | Real interactive map in MiniMap.tsx |
+| `/insights` page | Aggregate analytics with real session data |
+| Collapsible sidebar | 200px ↔ 56px toggle |
+| FloatingCards on map | Data cards overlay positioned relative to sidebar |
+| Archive date filters | TODAY / THIS WEEK / ALL filter logic |
+| Loading states | Loading spinners for archive, insights pages |
 
 ---
 
