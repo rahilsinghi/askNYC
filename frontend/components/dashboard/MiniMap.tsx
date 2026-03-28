@@ -18,11 +18,6 @@ const DEFAULT_ZOOM = 14
 const DEFAULT_PITCH = 62
 const DEFAULT_BEARING = -15
 
-const LANDMARK_REGISTRY = [
-  { id: 'esb', title: 'Empire State Building', subtitle: 'Iconic Landmark', rating: '4.8', lat: 40.7484, lng: -73.9857, color: 'gold' as const },
-  { id: 'wtc', title: 'One World Trade Center', subtitle: 'Hero Skyscraper', rating: '4.9', lat: 40.7127, lng: -74.0134, color: 'cyan' as const },
-]
-
 const LEGEND = [
   { label: 'LANDMARKS', color: '#fbbf24' },
   { label: 'COMPLAINTS', color: '#ef4444' },
@@ -35,7 +30,6 @@ export default function MiniMap({ pins = [], centerLat, centerLng, highlightLat,
   const mapContainer = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
   const markersRef = useRef<Map<string, any>>(new Map())
-  const landmarkRootsRef = useRef<Map<string, { unmount: () => void }>>(new Map())
   const highlightMarkerRef = useRef<any>(null)
 
   const [mapLoaded, setMapLoaded] = useState(false)
@@ -154,48 +148,6 @@ export default function MiniMap({ pins = [], centerLat, centerLng, highlightLat,
         if (destroyed) return
         mapRef.current = map
         setMapLoaded(true)
-        addLandmarkMarkers(map, mapboxgl)
-      })
-    }
-
-    const addLandmarkMarkers = async (map: any, mapboxgl: any) => {
-      const { createRoot } = await import('react-dom/client')
-      const { default: MapEvidenceCard } = await import('./MapEvidenceCard')
-
-      // Evidence Card Stack Logic
-      const EVIDENCE_STACK = [
-        { id: 'Card 1', title: 'Blue Note Jazz Club', rating: '4.8', lat: 40.7308, lng: -73.9973, color: 'gold' as const },
-        { id: 'Card 2', title: 'Smalls Jazz Club', rating: '4.7', lat: 40.7308, lng: -73.9973, color: 'gold' as const },
-        { id: 'Card 3', title: 'Django', rating: '4.6', lat: 40.7308, lng: -73.9973, color: 'gold' as const }
-      ]
-
-      EVIDENCE_STACK.forEach((card, i) => {
-        const markerKey = `evidence-${card.id}`;
-        if (markersRef.current.has(markerKey)) return
-
-        const el = document.createElement('div')
-        el.className = 'evidence-marker-container'
-        const root = createRoot(el)
-        root.render(
-          <MapEvidenceCard
-            id={card.id}
-            title={card.title}
-            rating={card.rating}
-            stackIndex={i}
-            color={card.color}
-          />
-        )
-
-        const marker = new mapboxgl.Marker({
-          element: el,
-          anchor: 'bottom-left',
-          offset: [20, -20]
-        })
-          .setLngLat([card.lng, card.lat])
-          .addTo(map)
-
-        markersRef.current.set(markerKey, marker)
-        landmarkRootsRef.current.set(markerKey, root)
       })
     }
 
@@ -203,9 +155,6 @@ export default function MiniMap({ pins = [], centerLat, centerLng, highlightLat,
 
     return () => {
       destroyed = true
-      const roots = Array.from(landmarkRootsRef.current.values())
-      landmarkRootsRef.current.clear()
-      setTimeout(() => roots.forEach(root => root.unmount()), 0)
       markersRef.current.forEach(marker => marker.remove())
       markersRef.current.clear()
       if (mapRef.current) {
@@ -317,7 +266,7 @@ export default function MiniMap({ pins = [], centerLat, centerLng, highlightLat,
 
       // Clean up old pins
       existing.forEach((marker, id) => {
-        if (!id.startsWith('evidence-') && !currentIds.has(id)) {
+        if (!currentIds.has(id)) {
           marker.remove()
           existing.delete(id)
         }
