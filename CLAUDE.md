@@ -255,7 +255,7 @@ All prompts are defined in `backend/services/gemini_service.py`. Key prompts:
 - "What trains are nearby?" → TransitExpert
 - General questions → Google Search + own knowledge
 
-**Model:** `gemini-live-2.5-flash-native-audio` (all agents)
+**Model:** `gemini-2.5-flash-native-audio-latest` (all agents — stable live audio model; gemini-3.1-flash-live-preview exists but is unstable in preview)
 
 ---
 

@@ -47,7 +47,7 @@ Phone Camera + Mic
 
 | Layer | Technology |
 |-------|-----------|
-| **AI Model** | Gemini 2.5 Flash Live (real-time voice + vision) |
+| **AI Model** | Gemini 2.5 Flash Native Audio (real-time voice + vision) |
 | **Agent Framework** | Google ADK with 5 specialist sub-agents |
 | **Grounding** | Google Search + 7 NYC Open Data datasets (40M+ records) |
 | **Backend** | FastAPI + Python, deployed on Google Cloud Run |

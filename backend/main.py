@@ -55,7 +55,7 @@ async def health():
         "status": "ok",
         "service": "ask-nyc",
         "version": "2.0.0",
-        "gemini_model": "gemini-live-2.5-flash-native-audio",
+        "gemini_model": "gemini-2.5-flash-native-audio-latest",
         "datasets": 7,
         "vertex_ai": os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "FALSE"),
         "active_sessions": len(ws_module._sessions),
