@@ -229,53 +229,70 @@ export default function MiniMap({ pins = [], centerLat, centerLng, highlightLat,
       }
 
       if (highlightLat && highlightLng) {
+        // Pulsing ground marker
         const el = document.createElement('div')
         el.className = 'detection-glow'
-        el.style.cssText = `
-          position:relative; width:140px; height:140px; 
-          background:radial-gradient(circle, rgba(34,211,238,0.5) 0%, transparent 70%); 
-          border-radius:50%; 
-          animation: pulse-glow 2.5s ease-out infinite;
-          display: flex; align-items: center; justify-content: center;
-        `
-
+        el.style.cssText = 'position:relative; width:140px; height:140px; background:radial-gradient(circle, rgba(34,211,238,0.5) 0%, transparent 70%); border-radius:50%; animation: pulse-glow 2.5s ease-out infinite; display: flex; align-items: center; justify-content: center;'
         const ring = document.createElement('div')
-        ring.style.cssText = `
-          position:absolute; width:100%; height:100%;
-          border: 2px solid rgba(34,211,238,0.3);
-          border-radius: 50%;
-          animation: ring-pulse 2.5s ease-out infinite;
-        `
+        ring.style.cssText = 'position:absolute; width:100%; height:100%; border: 2px solid rgba(34,211,238,0.3); border-radius: 50%; animation: ring-pulse 2.5s ease-out infinite;'
         el.appendChild(ring)
-
         const inner = document.createElement('div')
-        inner.style.cssText = `
-          width:16px; height:16px; background:#22d3ee; border-radius:50%;
-          box-shadow: 0 0 30px #22d3ee, 0 0 60px #22d3ee;
-          z-index: 2;
-        `
+        inner.style.cssText = 'width:16px; height:16px; background:#22d3ee; border-radius:50%; box-shadow: 0 0 30px #22d3ee, 0 0 60px #22d3ee; z-index: 2;'
         el.appendChild(inner)
-
-        const style = document.createElement('style')
-        style.innerHTML = `
-          @keyframes pulse-glow {
-            0% { transform: scale(0.6); opacity: 0.8; }
-            50% { opacity: 0.4; }
-            100% { transform: scale(1.6); opacity: 0; }
-          }
-          @keyframes ring-pulse {
-            0% { transform: scale(0.4); opacity: 0; }
-            50% { opacity: 1; }
-            100% { transform: scale(1.4); opacity: 0; }
-          }
-        `
-        document.head.appendChild(style)
-
+        if (!document.querySelector('#highlight-glow-styles')) {
+          const style = document.createElement('style')
+          style.id = 'highlight-glow-styles'
+          style.textContent = '@keyframes pulse-glow { 0% { transform: scale(0.6); opacity: 0.8; } 50% { opacity: 0.4; } 100% { transform: scale(1.6); opacity: 0; } } @keyframes ring-pulse { 0% { transform: scale(0.4); opacity: 0; } 50% { opacity: 1; } 100% { transform: scale(1.4); opacity: 0; } }'
+          document.head.appendChild(style)
+        }
         const marker = new mapboxgl.Marker({ element: el })
           .setLngLat([highlightLng, highlightLat])
           .addTo(map)
-
         highlightMarkerRef.current = marker
+
+        // Highlight the REAL building at these coords via queryRenderedFeatures
+        map.once('moveend', () => {
+          setTimeout(() => {
+            const pixel = map.project([highlightLng, highlightLat])
+            const pad = 20
+            const features = map.queryRenderedFeatures(
+              [[pixel.x - pad, pixel.y - pad], [pixel.x + pad, pixel.y + pad]],
+              { layers: ['3d-buildings'] }
+            )
+            if (features.length === 0) return
+            const seen = new Set<string>()
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const buildingFeatures: any[] = []
+            for (const f of features) {
+              const key = JSON.stringify(f.geometry).slice(0, 80)
+              if (seen.has(key)) continue
+              seen.add(key)
+              buildingFeatures.push({
+                type: 'Feature',
+                properties: { height: f.properties?.height || 20, min_height: f.properties?.min_height || 0 },
+                geometry: f.geometry,
+              })
+            }
+            const data = { type: 'FeatureCollection', features: buildingFeatures }
+            if (map.getSource('search-beacon')) {
+              map.getSource('search-beacon').setData(data)
+            } else {
+              map.addSource('search-beacon', { type: 'geojson', data })
+              map.addLayer({
+                id: 'search-beacon-glow',
+                type: 'fill-extrusion',
+                source: 'search-beacon',
+                paint: {
+                  'fill-extrusion-color': '#41E4F4',
+                  'fill-extrusion-height': ['get', 'height'],
+                  'fill-extrusion-base': ['get', 'min_height'],
+                  'fill-extrusion-opacity': 0.85,
+                  'fill-extrusion-vertical-gradient': true,
+                },
+              })
+            }
+          }, 500)
+        })
       }
     }
     updateHighlight()

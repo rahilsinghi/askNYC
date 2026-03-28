@@ -9,6 +9,7 @@ interface IntelligenceBriefProps {
   agentState: AgentState
   toolCalls: ToolCall[]
   transcript: string
+  lastQuery?: string
   sessionId: string | null
   remoteUrl?: string | null
   remoteConnected?: boolean
@@ -87,6 +88,7 @@ export default function IntelligenceBrief({
   agentState,
   toolCalls,
   transcript,
+  lastQuery,
   sessionId,
   remoteUrl,
   remoteConnected,
@@ -110,6 +112,16 @@ export default function IntelligenceBrief({
       <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] mb-8">
         AGENT_ANTIGRAVITY v4.0.2
       </p>
+
+      {/* Your Query */}
+      {lastQuery && (
+        <div className="mb-6 pb-4 border-b border-white/5">
+          <p className="text-[9px] font-bold tracking-[0.2em] text-white/30 uppercase mb-2">Your Query</p>
+          <div className="border-l-2 border-cyan-400/40 pl-3">
+            <p className="text-[12px] leading-relaxed text-white/70 italic">&ldquo;{lastQuery}&rdquo;</p>
+          </div>
+        </div>
+      )}
 
       {/* Waveform / State */}
       <div className="mb-10 p-6 bg-white/[0.02] border border-white/5 rounded-2xl">

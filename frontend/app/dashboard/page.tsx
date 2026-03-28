@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, Suspense } from 'react'
+import { useState, useCallback, useEffect, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import CameraFeed from '@/components/dashboard/CameraFeed'
 import CinematicMap from '@/components/maps/CinematicMap'
@@ -13,6 +13,17 @@ import { useDemoMode } from '@/hooks/useDemoMode'
 
 type DemoScenario = 'restaurant' | 'building' | 'construction' | 'safety' | 'transit' | 'general'
 
+// Known locations for URL param testing — maps slug to coordinates + demo scenario
+const KNOWN_LOCATIONS: Record<string, { lat: number; lng: number; name: string; demo: DemoScenario }> = {
+  'empire-state-building': { lat: 40.7484, lng: -73.9857, name: 'Empire State Building', demo: 'restaurant' },
+  'times-square':          { lat: 40.7580, lng: -73.9855, name: 'Times Square', demo: 'restaurant' },
+  'one-world-trade':       { lat: 40.7127, lng: -74.0134, name: 'One World Trade Center', demo: 'construction' },
+  'brooklyn-bridge':       { lat: 40.7061, lng: -73.9969, name: 'Brooklyn Bridge', demo: 'building' },
+  'central-park':          { lat: 40.7829, lng: -73.9654, name: 'Central Park', demo: 'restaurant' },
+  'joes-pizza':            { lat: 40.7308, lng: -74.0020, name: "Joe's Pizza, Carmine St", demo: 'restaurant' },
+  'nyu-tandon':            { lat: 40.6942, lng: -73.9866, name: 'NYU Tandon, Jay St', demo: 'construction' },
+}
+
 function DashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -21,42 +32,70 @@ function DashboardContent() {
   const demo = useDemoMode()
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)
   const [voiceMode, setVoiceMode] = useState(false)
+  const [lastQuery, setLastQuery] = useState('')
+  const [overrideCenter, setOverrideCenter] = useState<{ lat: number; lng: number } | null>(null)
+  const urlProcessedRef = useRef(false)
 
   // Show remote-captured image on dashboard (overrides manual upload)
   const displayImage = ws.capturedImage || uploadedImage
 
-  // Use WS data when backend is connected, demo data when not
+  // Use WS data when backend is connected, demo data when not.
+  // When demo is actively running, show demo data even if WS is connected.
   const isLive = ws.isConnected
-  const agentState = isLive ? ws.agentState : demo.agentState
-  const cards = isLive ? ws.cards : demo.cards
-  const toolCalls = isLive ? ws.toolCalls : demo.toolCalls
-  const transcript = isLive ? ws.transcript : demo.transcript
-  const mapCenter = isLive ? ws.mapCenter : demo.mapCenter
+  const demoActive = demo.agentState !== 'idle' || demo.cards.length > 0
+  const preferDemo = demoActive && (ws.cards.length === 0)
+  const agentState = preferDemo ? demo.agentState : (isLive ? ws.agentState : demo.agentState)
+  const cards = preferDemo ? demo.cards : (isLive ? ws.cards : demo.cards)
+  const toolCalls = preferDemo ? demo.toolCalls : (isLive ? ws.toolCalls : demo.toolCalls)
+  const transcript = preferDemo ? demo.transcript : (isLive ? ws.transcript : demo.transcript)
+  const mapCenter = overrideCenter ?? (isLive ? ws.mapCenter : demo.mapCenter)
 
   // Focus mode: Clear the map and move cards to the right when a location is being discussed
   const isFocusMode = (agentState === 'processing' || agentState === 'speaking') && !!mapCenter
 
   const handleSendQuery = useCallback((text: string) => {
+    setLastQuery(text)
     ws.sendQuery(displayImage, text)
   }, [ws, displayImage])
 
+  // Stable refs for URL param handling (avoid re-render loops)
+  const demoRunDemo = demo.runDemo
+  const sendQueryRef = useRef(handleSendQuery)
+  sendQueryRef.current = handleSendQuery
+
   // ─── Query param handling ───────────────────────────────────────────────────
+  // Supports: ?location=empire-state-building | ?q=query | ?demo=restaurant
   useEffect(() => {
     const q = searchParams.get('q')
-    const location = searchParams.get('location')
+    const locationParam = searchParams.get('location')
     const demoParam = searchParams.get('demo')
     const voice = searchParams.get('voice')
 
-    if (!q && !demoParam && !voice) return
+    if (!q && !demoParam && !voice && !locationParam) return
+    if (urlProcessedRef.current) return
+    urlProcessedRef.current = true
 
-    if (voice === 'true') {
-      setVoiceMode(true)
+    if (voice === 'true') setVoiceMode(true)
+
+    // Location param: look up known place, fly to it, run demo + real query
+    if (locationParam) {
+      const loc = KNOWN_LOCATIONS[locationParam]
+      if (loc) {
+        setLastQuery(loc.name)
+        setOverrideCenter({ lat: loc.lat, lng: loc.lng })
+        setTimeout(() => {
+          sendQueryRef.current(loc.name)
+          demoRunDemo(loc.demo as any)
+        }, 1500)
+        return
+      }
     }
 
     if (q) {
-      const queryText = location ? `${location}: ${q}` : q
+      const locationName = searchParams.get('loc')
+      const queryText = locationName ? `${locationName}: ${q}` : q
       const timer = setTimeout(() => {
-        handleSendQuery(queryText)
+        sendQueryRef.current(queryText)
         router.replace('/dashboard', { scroll: false })
       }, 500)
       return () => clearTimeout(timer)
@@ -67,11 +106,11 @@ function DashboardContent() {
       const timers: ReturnType<typeof setTimeout>[] = []
 
       if (demoParam === 'all') {
-        timers.push(setTimeout(() => demo.runDemo('restaurant'), 0))
-        timers.push(setTimeout(() => demo.runDemo('building'), 12_000))
-        timers.push(setTimeout(() => demo.runDemo('construction'), 24_000))
+        timers.push(setTimeout(() => demoRunDemo('restaurant'), 0))
+        timers.push(setTimeout(() => demoRunDemo('building'), 12_000))
+        timers.push(setTimeout(() => demoRunDemo('construction'), 24_000))
       } else if (validScenarios.includes(demoParam)) {
-        timers.push(setTimeout(() => demo.runDemo(demoParam as any), 0))
+        timers.push(setTimeout(() => demoRunDemo(demoParam as any), 0))
       }
 
       router.replace('/dashboard', { scroll: false })
@@ -79,7 +118,7 @@ function DashboardContent() {
     }
 
     router.replace('/dashboard', { scroll: false })
-  }, [searchParams, router, handleSendQuery, demo])
+  }, [searchParams, router, demoRunDemo])
 
   return (
     <DashboardLayout>
@@ -162,6 +201,7 @@ function DashboardContent() {
               cards={cards}
               toolCalls={toolCalls}
               transcript={transcript}
+              lastQuery={lastQuery}
               sessionId={ws.sessionId}
               remoteUrl={ws.remoteUrl}
               remoteConnected={ws.remoteConnected}
