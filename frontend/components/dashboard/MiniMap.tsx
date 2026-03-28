@@ -135,9 +135,10 @@ export default function MiniMap({ pins, centerLat, centerLng }: MiniMapProps) {
 
     return () => {
       destroyed = true
-      // Clean up React roots
-      landmarkRootsRef.current.forEach(root => root.unmount())
+      // Defer React root unmounts to avoid unmounting during a render cycle
+      const roots = Array.from(landmarkRootsRef.current.values())
       landmarkRootsRef.current.clear()
+      setTimeout(() => roots.forEach(root => root.unmount()), 0)
       // Clean up markers
       markersRef.current.forEach(marker => (marker as { remove: () => void }).remove())
       markersRef.current.clear()
