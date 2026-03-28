@@ -6,11 +6,15 @@ All functions are ADK tool-compatible (async, typed returns).
 Docs: https://dev.socrata.com/docs/queries/
 """
 
+import logging
+
 import httpx
 import os
 from datetime import datetime, timedelta
 from typing import Optional
 from models.schemas import DataCard
+
+logger = logging.getLogger(__name__)
 
 SOCRATA_BASE = "https://data.cityofnewyork.us/resource"
 SOCRATA_NY_BASE = "https://data.ny.gov/resource"
@@ -22,7 +26,7 @@ HEADERS = {"X-App-Token": APP_TOKEN} if APP_TOKEN else {}
 async def _get(endpoint: str, params: dict, base: str = SOCRATA_BASE) -> list[dict]:
     """Execute a Socrata SoQL query. Returns list of result dicts."""
     url = f"{base}/{endpoint}"
-    async with httpx.AsyncClient(timeout=8.0) as client:
+    async with httpx.AsyncClient(timeout=15.0) as client:
         resp = await client.get(url, params=params, headers=HEADERS)
         resp.raise_for_status()
         return resp.json()
@@ -189,8 +193,8 @@ async def query_dob_permits(
             f"gis_latitude IS NOT NULL"
             f" AND gis_latitude > '{lat_min:.6f}'"
             f" AND gis_latitude < '{lat_max:.6f}'"
-            f" AND gis_longitude > '{lng_max:.6f}'"
-            f" AND gis_longitude < '{lng_min:.6f}'"
+            f" AND gis_longitude > '{lng_min:.6f}'"
+            f" AND gis_longitude < '{lng_max:.6f}'"
         ),
         "$order": "filing_date DESC",
         "$limit": "20",
@@ -327,7 +331,7 @@ async def _get_nearby_zip(lat: float, lng: float) -> Optional[str]:
             if zips:
                 return max(set(zips), key=zips.count)
     except Exception:
-        pass
+        logger.debug("_get_nearby_zip failed for (%s, %s)", lat, lng, exc_info=True)
     return None
 
 

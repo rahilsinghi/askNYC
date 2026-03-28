@@ -414,8 +414,8 @@ class GeminiSession:
         if self._live_queue:
             try:
                 self._live_queue.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                print(f"[GeminiSession {self.session_id}] error closing live queue: {exc}")
 
         self._live_queue = LiveRequestQueue()
         self._session_alive = True
@@ -501,10 +501,12 @@ class GeminiSession:
         if event.turn_complete:
             event_info.append('turn_complete')
         if event.input_transcription:
-            event_info.append(f'in_transcript:{event.input_transcription[:40]}')
-            self._last_user_transcript = event.input_transcription
+            txt = str(event.input_transcription)
+            event_info.append(f'in_transcript:{txt[:40]}')
+            self._last_user_transcript = txt
         if event.output_transcription:
-            event_info.append(f'out_transcript:{event.output_transcription[:40]}')
+            txt = str(event.output_transcription)
+            event_info.append(f'out_transcript:{txt[:40]}')
         if event_info and 'audio' not in event_info:
             print(f"[GeminiSession {self.session_id}] event: {', '.join(event_info)}")
 
@@ -533,7 +535,7 @@ class GeminiSession:
         if event.input_transcription:
             await self.dashboard_send({
                 "type": "transcript",
-                "text": event.input_transcription,
+                "text": str(event.input_transcription),
                 "speaker": "user",
                 "partial": True,
             })
@@ -542,7 +544,7 @@ class GeminiSession:
         if event.output_transcription:
             await self.dashboard_send({
                 "type": "transcript",
-                "text": event.output_transcription,
+                "text": str(event.output_transcription),
                 "speaker": "agent",
                 "partial": bool(event.partial),
             })
@@ -584,8 +586,8 @@ class GeminiSession:
                                 "type": "data_card",
                                 "card": card.model_dump(),
                             })
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            print(f"[GeminiSession {self.session_id}] DataCard creation failed: {exc} | raw={result}")
 
         # ── Turn complete ────────────────────────────────────────────────
         if event.turn_complete:
