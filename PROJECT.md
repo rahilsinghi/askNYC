@@ -6,34 +6,45 @@
 **Organizer:** GDG NYC
 **Part of:** NYC Open Data Week
 **Date:** March 27-28, 2026
-**Team:** Rahil Singhi + Aishwarya Ghaiwat
+**Team:** Rahil Singhi, Chinmay, Sariya, Bharath
 **Prizes:** Google I/O tickets + private pitch with Google AI Futures Fund
 **Required tech:** Gemini Live API, ADK, Google Cloud, NYC Open Data
 
 ---
 
-## Current Status (as of March 26, 2026)
+## Current Status (as of March 27, 2026)
+
+### Live Deployment
+
+| Service | URL |
+|---------|-----|
+| **Backend (Cloud Run)** | `https://asknyc-backend-901435891859.us-central1.run.app` |
+| **Frontend (Cloud Run)** | `https://asknyc-frontend-901435891859.us-central1.run.app` |
+| **Artifact Registry** | `us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/` |
 
 ### What's Working
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Backend (FastAPI) | Running | `uvicorn main:app --reload --port 8000` |
-| `/health` endpoint | Verified | Returns `{"status":"ok","service":"ask-nyc"}` |
+| Backend (FastAPI) | **Deployed** | Cloud Run, Vertex AI enabled, all API keys set |
+| `/health` endpoint | **Verified** | Returns `{"status":"ok","datasets":7,"vertex_ai":"TRUE"}` |
 | `/sessions` endpoint | Verified | Returns session history (empty until first session) |
 | WebSocket `/ws/dashboard` | Implemented | Creates GeminiSession, sends events to dashboard |
 | WebSocket `/ws/remote` | Implemented | Receives audio+video from phone, relays to Gemini |
 | Socrata API (7 datasets) | **7/7 passing** | All return real NYC data, tested at NYU Tandon coords |
-| Geocoding service | Implemented | Falls back to NYC center without API key |
-| Gemini Live integration | Implemented | Needs `GOOGLE_API_KEY` to activate |
+| Geocoding service | **Active** | Google Maps API key configured |
+| Gemini Live integration | **Active** | Gemini API key + Vertex AI configured |
 | Session store | Implemented | In-memory, lost on restart |
-| Frontend (Next.js 15) | Building clean | Zero TypeScript errors |
+| Frontend (Next.js 15) | **Deployed** | Cloud Run, standalone build, Mapbox token baked in |
 | Splash page (`/`) | Complete | Animated wordmark, count-up stats, CTA |
 | Dashboard (`/dashboard`) | Complete | 4-panel layout, demo mode, WebSocket integration |
 | Remote (`/remote`) | Complete | Camera + mic UI, hold-to-speak button |
 | Archive (`/archive`) | Complete | Session grid with demo data fallback |
 | Demo mode | Complete | 3 offline scenarios (restaurant, building, construction) |
 | Design system | Complete | Tailwind config, CSS animations, Google Fonts |
+| **Cloud Run Backend** | **Deployed** | us-central1, session affinity, CORS configured |
+| **Cloud Run Frontend** | **Deployed** | us-central1, standalone Next.js, env vars baked |
+| **Artifact Registry** | **Created** | `asknyc` repo in us-central1 |
 
 ### What Needs API Keys
 
@@ -320,21 +331,42 @@ Cards animate in with staggered timing, tool badges shimmer, waveform transition
 
 ---
 
-## Deploy to Google Cloud Run
+## Cloud Deployment (Live)
 
+Both backend and frontend are deployed to **Google Cloud Run** in `us-central1`.
+
+### Backend
+```
+URL: https://asknyc-backend-901435891859.us-central1.run.app
+Image: us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/backend:latest
+```
+
+Env vars configured: `GOOGLE_GEMINI_API_KEY`, `GOOGLE_MAPS_API_KEY`, `SOCRATA_APP_TOKEN`, `GOOGLE_GENAI_USE_VERTEXAI=TRUE`, `CORS_ORIGINS` (includes frontend URL).
+
+### Frontend
+```
+URL: https://asknyc-frontend-901435891859.us-central1.run.app
+Image: us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/frontend:latest
+```
+
+Built with `NEXT_PUBLIC_WS_URL=wss://asknyc-backend-901435891859.us-central1.run.app` and Mapbox token baked in. Uses `output: 'standalone'` in `next.config.ts`.
+
+### Redeploy Commands
 ```bash
+# Backend
 cd backend
+docker build --platform linux/amd64 -t us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/backend:latest .
+docker push us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/backend:latest
+gcloud run deploy asknyc-backend --image us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/backend:latest --region us-central1
 
-# Build and push
-gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/ask-nyc-backend
-
-# Deploy
-gcloud run deploy ask-nyc-backend \
-  --image gcr.io/YOUR_PROJECT_ID/ask-nyc-backend \
-  --platform managed \
-  --region us-east1 \
-  --allow-unauthenticated \
-  --set-env-vars GOOGLE_API_KEY=xxx,GOOGLE_MAPS_API_KEY=yyy,CORS_ORIGINS=https://your-frontend.vercel.app
+# Frontend
+cd frontend
+docker build --platform linux/amd64 \
+  --build-arg NEXT_PUBLIC_WS_URL=wss://asknyc-backend-901435891859.us-central1.run.app \
+  --build-arg NEXT_PUBLIC_MAPBOX_TOKEN=<token> \
+  -t us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/frontend:latest .
+docker push us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/frontend:latest
+gcloud run deploy asknyc-frontend --image us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/frontend:latest --region us-central1
 ```
 
 **Important:** Cloud Run scales to zero. Hit `/health` once before presenting to warm it up.
@@ -352,7 +384,7 @@ gcloud run deploy ask-nyc-backend \
 | 5 | Dashboard UI — camera + cards | DONE | Aishwarya |
 | 6 | Tool call → card animation | DONE | Both |
 | 7 | Phone remote page | DONE | Aishwarya |
-| 8 | Map pins (Mapbox) | NOT STARTED | Either |
+| 8 | Map pins (Mapbox) | NOT STARTED | Sariya |
 | 9 | Session archive | DONE | Either |
 | 10 | Onboarding/splash | DONE | Either |
 

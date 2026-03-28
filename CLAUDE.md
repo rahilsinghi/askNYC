@@ -283,7 +283,7 @@ GOOGLE_CLOUD_PROJECT=        # GCP project ID (for Vertex AI)
 GOOGLE_CLOUD_LOCATION=       # GCP region (for Vertex AI)
 GOOGLE_MAPS_API_KEY=         # Google Maps Geocoding API
 SOCRATA_APP_TOKEN=           # Optional: increases rate limits
-CORS_ORIGINS=http://localhost:3000,https://your-frontend.vercel.app
+CORS_ORIGINS=http://localhost:3000,https://asknyc-frontend-901435891859.us-central1.run.app
 
 # Frontend
 NEXT_PUBLIC_WS_URL=ws://localhost:8000

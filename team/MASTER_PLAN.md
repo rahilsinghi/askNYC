@@ -136,7 +136,7 @@
 | ADK version | `>=1.27.0` | Supports Runner.run_live(), LiveRequestQueue, multi-agent |
 | Agent pattern | Multi-agent with sub_agents | Strong differentiator, judges see sophisticated architecture |
 | Grounding | Google Search + Socrata | Combines government data + web data = unique insight |
-| Deployment | Cloud Run (backend) + Vercel (frontend) | Judges require "visual proof of Cloud deployment" |
+| Deployment | Cloud Run (backend + frontend) | Judges require "visual proof of Cloud deployment" — both live |
 | Vertex AI | Yes, for Cloud Run | Shows production readiness, uses GCP properly |
 | AI Studio | Yes, for local dev | Fast iteration, no IAM setup needed |
 

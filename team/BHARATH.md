@@ -1,6 +1,9 @@
 # Bharath — QA, Demo Prep & Documentation
 
 > Testing, demo script, presentation, environment setup, GitHub repo
+>
+> **Deployment is DONE.** See [docs/BHARATH_TASKS.md](../docs/BHARATH_TASKS.md) for live URLs and testing instructions.
+> Start from **Task 3** in BHARATH_TASKS.md (iOS Safari live camera testing).
 
 ---
 

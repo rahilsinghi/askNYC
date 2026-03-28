@@ -1,7 +1,7 @@
 # Ask NYC — Roadmap & Next Steps
 
 > Everything left to build, organized by priority for the March 27-28 hackathon.
-> Updated: March 26, 2026
+> Updated: March 27, 2026
 
 ---
 
@@ -155,47 +155,28 @@ What needs to happen:
 
 ---
 
-## Priority 4 — Deployment & Infrastructure
+## Priority 4 — Deployment & Infrastructure — DONE
 
-### 4.1 Google Cloud Run Deployment
+### 4.1 Google Cloud Run Deployment — DONE
 
-**Status:** Dockerfile exists, not tested
-**Files:** `backend/Dockerfile`, `dev.sh`
+**Status:** Backend + Frontend both deployed to Cloud Run on 2026-03-27.
 
-Steps:
-```bash
-# Build
-gcloud builds submit --tag gcr.io/PROJECT_ID/ask-nyc-backend
+| Service | URL |
+|---------|-----|
+| Backend | `https://asknyc-backend-901435891859.us-central1.run.app` |
+| Frontend | `https://asknyc-frontend-901435891859.us-central1.run.app` |
 
-# Deploy
-gcloud run deploy ask-nyc-backend \
-  --image gcr.io/PROJECT_ID/ask-nyc-backend \
-  --platform managed --region us-east1 \
-  --allow-unauthenticated \
-  --set-env-vars GOOGLE_API_KEY=xxx,GOOGLE_MAPS_API_KEY=yyy,CORS_ORIGINS=https://ask-nyc.vercel.app
-```
+- Artifact Registry repo: `us-central1-docker.pkg.dev/nth-segment-491623-d2/asknyc/`
+- Backend: Vertex AI enabled, all API keys set, CORS configured, session affinity
+- Frontend: standalone Next.js build, WS URL + Mapbox token baked in
 
-Considerations:
-- Cloud Run scales to zero — hit `/health` before demo to warm up
-- WebSocket support: Cloud Run supports WS but has a 15-minute idle timeout
-- Need to update `NEXT_PUBLIC_WS_URL` in frontend to point to Cloud Run URL
-- HTTPS provided automatically by Cloud Run — needed for phone camera access
+### 4.2 Frontend Deployment — DONE
 
-### 4.2 Frontend Deployment (Vercel)
+Deployed to Cloud Run (not Vercel) for simplicity. Both services in same region.
 
-**Steps:**
-- Push to GitHub
-- Connect repo to Vercel
-- Set environment variables: `NEXT_PUBLIC_WS_URL`, `NEXT_PUBLIC_MAPBOX_TOKEN`
-- Verify WebSocket connection to Cloud Run backend
+### 4.3 HTTPS for Phone Camera — DONE
 
-### 4.3 HTTPS for Phone Camera
-
-**Status:** `getUserMedia()` requires HTTPS on non-localhost
-**Options:**
-- ngrok tunnel during local development: `ngrok http 3000`
-- Cloud Run (automatic HTTPS) for demo day
-- Self-signed cert with mkcert for local network testing
+Cloud Run provides HTTPS automatically. Phone camera access works on deployed URLs.
 
 ---
 
