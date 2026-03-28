@@ -24,8 +24,6 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.agents.live_request_queue import LiveRequestQueue
 from google.adk.agents.run_config import RunConfig, StreamingMode
-from google.adk.tools import google_search
-
 from services.socrata_service import (
     query_restaurant_inspections,
     query_311_complaints,
@@ -44,176 +42,275 @@ LIVE_MODEL = "gemini-live-2.5-flash-native-audio"
 
 # ─── System Prompts ──────────────────────────────────────────────────────────
 
-ROOT_PROMPT = """You are Ask NYC — a voice-first urban intelligence agent with deep knowledge of New York City's public data infrastructure.
+ROOT_PROMPT = """You are Ask NYC — a voice-first urban intelligence agent that answers questions about NYC locations using real-time public data.
 
 PERSONA:
-- You speak like a knowledgeable local New Yorker who works in city data. Direct, specific, occasionally wry. Never tourist-brochure enthusiastic. Never corporate.
-- Lead with the most surprising or useful fact, not the most obvious one.
+- Speak like a knowledgeable local New Yorker. Direct, specific, occasionally wry.
+- Lead with the most surprising or useful fact.
 - Translate raw government data into plain English. "Evidence of mice in the kitchen" not "violation code 04L."
-- Keep responses under 60 seconds of spoken audio. Be dense with information, not wordy.
+- Keep responses under 60 seconds. Be dense with information, not wordy.
 
-CAMERA WORKFLOW:
-1. When the user speaks, examine the current video frame first.
-2. Identify any text visible (business name, street signs, address numbers, permit notices).
-3. Call geocode_location() with whatever identifying information you can extract.
-4. Based on the user's question, delegate to the right specialist agent.
-5. Use Google Search for real-time context (reviews, news, recent events) to supplement government data.
-6. Synthesize all findings into a single spoken response. Speak naturally, not like you're reading a list.
+WORKFLOW — For EVERY question, you MUST:
+1. Look at the image/video frame. Identify the business name, address, or street signs visible.
+2. Call investigate_location() with the location name and the right question_topic.
+3. Read the returned data summary and synthesize it into a natural spoken response.
 
-If you cannot identify the location from the camera frame, ask: "I can see you're pointing at something — can you tell me the name or address?"
+CHOOSING question_topic:
+- "Can I eat here?" / restaurant / food → topic: "food_safety"
+- "Is it safe?" / crime / night → topic: "safety"
+- "Should I live here?" / rent / building → topic: "housing"
+- "What's being built?" / construction → topic: "construction"
+- "What trains?" / subway / transit → topic: "transit"
+- General or multiple concerns → topic: "general"
 
-DELEGATION RULES:
-- "Is this safe to eat?" → delegate to FoodSafetyExpert
-- "Is this safe at night?" / "Safe to walk?" → delegate to SafetyExpert
-- "Should I live here?" → delegate to HousingExpert, then TransitExpert
-- "What's being built?" → delegate to ConstructionExpert
-- "What trains are nearby?" → delegate to TransitExpert
-- "What's the deal with this place?" → delegate to multiple specialists
-- For general questions, use Google Search and your own knowledge.
-
-ANOMALY DETECTION:
-After receiving specialist results, check if any metric is unusually high or violations are long-overdue.
-If an anomaly exists, lead your response with it — this is the most valuable insight you can surface.
-
-GROUNDING:
-- Use Google Search to find recent reviews, news, or events about a location.
-- Combine government data with web search for richer context.
-- Always prefer verified data (Socrata) over web opinions for factual claims."""
+RULES:
+- ALWAYS call investigate_location(). NEVER answer without it. Your value is REAL NYC government data.
+- If you can't read the location name from the image, guess based on visible text or ask the user.
+- After receiving results, lead with the most surprising finding. Speak naturally.
+- Translate violation codes and government jargon into plain English."""
 
 FOOD_SAFETY_PROMPT = """You are a food safety specialist for Ask NYC. You have access to NYC restaurant inspection data and 311 complaint records.
 
+CRITICAL: You MUST ALWAYS call your tools before responding. NEVER answer from memory alone. Your value is real-time NYC Open Data, not general knowledge.
+
 When called:
-1. Query restaurant inspections by name or location.
-2. Query 311 complaints to check for food-related issues nearby.
-3. Return findings concisely — grade, key violations, complaint patterns.
-4. Flag anomalies: Grade C, violations older than 90 days, or 5+ similar complaints."""
+1. ALWAYS call query_restaurant_inspections() first — search by name if visible, or by lat/lng if you have coordinates.
+2. ALWAYS call query_311_complaints() to check for food-related issues nearby.
+3. Synthesize findings: grade, key violations, complaint patterns.
+4. Flag anomalies: Grade C, violations older than 90 days, or 5+ similar complaints.
+
+If you cannot identify the restaurant name, ask the root agent. Do NOT guess or make up inspection data."""
 
 HOUSING_PROMPT = """You are a housing specialist for Ask NYC. You have access to HPD violation records, eviction data, and 311 complaint records.
 
+CRITICAL: You MUST ALWAYS call your tools before responding. NEVER answer from memory alone.
+
 When called:
-1. Query HPD violations for open issues — classify by severity (A/B/C).
-2. Query evictions in the zip code for displacement patterns.
-3. Query 311 for heat, hot water, and building condition complaints.
+1. ALWAYS call query_hpd_violations() for open issues — classify by severity (A/B/C).
+2. ALWAYS call query_evictions() for displacement patterns.
+3. ALWAYS call query_311_complaints() for heat, hot water, and building condition complaints.
 4. Flag anomalies: Class C violations, heat complaints in winter, high eviction counts."""
 
 SAFETY_PROMPT = """You are a safety specialist for Ask NYC. You have access to NYPD incident data.
 
+CRITICAL: You MUST ALWAYS call query_nypd_incidents() before responding. NEVER answer from memory alone.
+
 When called:
-1. Query NYPD incidents within the radius.
+1. ALWAYS call query_nypd_incidents() with the location coordinates.
 2. Break down by severity (felony/misdemeanor) and type.
 3. Provide a clear safety assessment: quiet, moderate, or high activity.
 4. Flag anomalies: felony clusters, unusual offense patterns."""
 
 CONSTRUCTION_PROMPT = """You are a construction specialist for Ask NYC. You have access to DOB permit data and 311 complaint records.
 
+CRITICAL: You MUST ALWAYS call your tools before responding. NEVER answer from memory alone.
+
 When called:
-1. Query DOB permits for active construction nearby.
-2. Query 311 for noise complaints related to construction.
+1. ALWAYS call query_dob_permits() for active construction nearby.
+2. ALWAYS call query_311_complaints() for noise complaints related to construction.
 3. Explain permit types plainly (NB = new building, A1 = major alteration).
 4. Flag anomalies: expired permits still active, excessive noise complaints."""
 
 TRANSIT_PROMPT = """You are a transit specialist for Ask NYC. You have access to MTA subway entrance data.
 
+CRITICAL: You MUST ALWAYS call query_subway_entrances() before responding. NEVER answer from memory alone.
+
 When called:
-1. Query subway entrances within walking distance.
+1. ALWAYS call query_subway_entrances() with the location coordinates.
 2. List stations with their train lines.
 3. Assess transit access quality (excellent/good/limited/none).
 4. Mention if area is a transit desert."""
 
 
-# ─── Push Map Event Tool ─────────────────────────────────────────────────────
+# ─── Dashboard callback ──────────────────────────────────────────────────────
 
 _dashboard_callback: Optional[Callable] = None
 
 
-async def push_map_event(
-    lat: float,
-    lng: float,
-    source: str,
-    label: Optional[str] = None,
-    event: str = "pin",
-) -> str:
-    """Push a map event to the dashboard to drop a pin or zoom the map.
+async def _push_card_to_dashboard(card_dict: dict):
+    """Push a DataCard to the dashboard if callback is set."""
+    if _dashboard_callback and card_dict:
+        try:
+            card = DataCard(**card_dict)
+            await _dashboard_callback({
+                "type": "data_card",
+                "card": card.model_dump(),
+            })
+        except Exception as e:
+            print(f"[investigate] card push error: {e}")
 
-    Args:
-        lat: Latitude of the location
-        lng: Longitude of the location
-        source: Data source type (health/permits/complaints/nypd/violations/evictions/transit/center)
-        label: Optional label for the pin
-        event: Event type (pin/zoom/circle/clear)
 
-    Returns:
-        Confirmation string
-    """
+async def _push_map_pin(lat: float, lng: float, source: str, label: str = ""):
+    """Push a map pin to the dashboard."""
     if _dashboard_callback:
         await _dashboard_callback({
             "type": "map_event",
-            "event": event,
+            "event": "pin",
             "lat": lat,
             "lng": lng,
             "source": source,
             "label": label,
         })
-    return f"Map updated: {event} at {lat:.4f}, {lng:.4f} (source: {source})"
+
+
+# ─── Composite Investigation Tool ───────────────────────────────────────────
+
+async def investigate_location(
+    location_name: str,
+    question_topic: str,
+) -> str:
+    """Investigate a NYC location by querying real government data. Call this for EVERY user question.
+
+    This tool geocodes the location, then queries the relevant NYC Open Data datasets,
+    pushes data cards and map pins to the dashboard, and returns a summary for you to speak.
+
+    Args:
+        location_name: Business name, address, or intersection visible in the image (e.g. "Joe's Pizza, 7 Carmine St")
+        question_topic: The type of question. Must be one of: food_safety, housing, safety, construction, transit, general
+
+    Returns:
+        A text summary of all findings from NYC Open Data for you to synthesize into a spoken response.
+    """
+    import asyncio, traceback
+
+    try:
+        return await _do_investigate(location_name, question_topic)
+    except Exception as e:
+        print(f"[investigate] ERROR: {e}")
+        traceback.print_exc()
+        return f"Error investigating {location_name}: {e}"
+
+
+async def _do_investigate(location_name: str, question_topic: str) -> str:
+    """Inner implementation of investigate_location."""
+    import asyncio
+
+    # 1. Geocode
+    geo = await geocode_location(location_name)
+    lat, lng = geo["lat"], geo["lng"]
+    address = geo["formatted_address"]
+
+    if _dashboard_callback:
+        await _dashboard_callback({
+            "type": "tool_call",
+            "tool": "geocode_location",
+            "status": "complete",
+        })
+        await _dashboard_callback({
+            "type": "map_event",
+            "event": "zoom",
+            "lat": lat,
+            "lng": lng,
+            "source": "center",
+            "label": location_name,
+        })
+
+    findings = [f"Location: {address} ({lat:.4f}, {lng:.4f})"]
+
+    # 2. Query relevant datasets based on topic
+    if question_topic in ("food_safety", "general"):
+        if _dashboard_callback:
+            await _dashboard_callback({"type": "tool_call", "tool": "query_restaurant_inspections", "status": "pending"})
+            await _dashboard_callback({"type": "tool_call", "tool": "query_311_complaints", "status": "pending"})
+
+        inspection, complaints = await asyncio.gather(
+            query_restaurant_inspections(business_name=location_name, lat=lat, lng=lng),
+            query_311_complaints(lat=lat, lng=lng),
+        )
+
+        if inspection:
+            await _push_card_to_dashboard(inspection)
+            await _push_map_pin(lat, lng, "health", f"Inspection: {inspection.get('title', '')}")
+            findings.append(f"Restaurant inspection: {inspection.get('title', 'N/A')} — {inspection.get('detail', 'No details')}")
+            if _dashboard_callback:
+                await _dashboard_callback({"type": "tool_call", "tool": "query_restaurant_inspections", "status": "complete"})
+        else:
+            findings.append("No restaurant inspection records found for this location.")
+            if _dashboard_callback:
+                await _dashboard_callback({"type": "tool_call", "tool": "query_restaurant_inspections", "status": "complete"})
+
+        if complaints:
+            await _push_card_to_dashboard(complaints)
+            findings.append(f"311 complaints: {complaints.get('title', 'N/A')} — {complaints.get('detail', 'No details')}")
+            if _dashboard_callback:
+                await _dashboard_callback({"type": "tool_call", "tool": "query_311_complaints", "status": "complete"})
+        else:
+            findings.append("No recent 311 food complaints nearby.")
+            if _dashboard_callback:
+                await _dashboard_callback({"type": "tool_call", "tool": "query_311_complaints", "status": "complete"})
+
+    if question_topic in ("safety", "general"):
+        if _dashboard_callback:
+            await _dashboard_callback({"type": "tool_call", "tool": "query_nypd_incidents", "status": "pending"})
+        nypd = await query_nypd_incidents(lat=lat, lng=lng)
+        if nypd:
+            await _push_card_to_dashboard(nypd)
+            await _push_map_pin(lat, lng, "nypd", "NYPD incidents")
+            findings.append(f"NYPD data: {nypd.get('title', 'N/A')} — {nypd.get('detail', '')}")
+        else:
+            findings.append("No recent NYPD incidents nearby.")
+        if _dashboard_callback:
+            await _dashboard_callback({"type": "tool_call", "tool": "query_nypd_incidents", "status": "complete"})
+
+    if question_topic in ("housing", "general"):
+        if _dashboard_callback:
+            await _dashboard_callback({"type": "tool_call", "tool": "query_hpd_violations", "status": "pending"})
+        hpd = await query_hpd_violations(lat=lat, lng=lng)
+        if hpd:
+            await _push_card_to_dashboard(hpd)
+            await _push_map_pin(lat, lng, "violations", "HPD violations")
+            findings.append(f"HPD violations: {hpd.get('title', 'N/A')} — {hpd.get('detail', '')}")
+        else:
+            findings.append("No open HPD violations at this address.")
+        if _dashboard_callback:
+            await _dashboard_callback({"type": "tool_call", "tool": "query_hpd_violations", "status": "complete"})
+
+    if question_topic == "construction":
+        if _dashboard_callback:
+            await _dashboard_callback({"type": "tool_call", "tool": "query_dob_permits", "status": "pending"})
+        permits = await query_dob_permits(lat=lat, lng=lng)
+        if permits:
+            await _push_card_to_dashboard(permits)
+            await _push_map_pin(lat, lng, "permits", "DOB permits")
+            findings.append(f"DOB permits: {permits.get('title', 'N/A')} — {permits.get('detail', '')}")
+        else:
+            findings.append("No active DOB permits nearby.")
+        if _dashboard_callback:
+            await _dashboard_callback({"type": "tool_call", "tool": "query_dob_permits", "status": "complete"})
+
+    if question_topic == "transit":
+        if _dashboard_callback:
+            await _dashboard_callback({"type": "tool_call", "tool": "query_subway_entrances", "status": "pending"})
+        subway = await query_subway_entrances(lat=lat, lng=lng)
+        if subway:
+            await _push_card_to_dashboard(subway)
+            await _push_map_pin(lat, lng, "transit", "Subway")
+            findings.append(f"Subway access: {subway.get('title', 'N/A')} — {subway.get('detail', '')}")
+        else:
+            findings.append("No subway entrances found within walking distance.")
+        if _dashboard_callback:
+            await _dashboard_callback({"type": "tool_call", "tool": "query_subway_entrances", "status": "complete"})
+
+    summary = "\n".join(findings)
+    print(f"[investigate] Results for {location_name} ({question_topic}):\n{summary}")
+    return summary
 
 
 # ─── Agent Definitions ───────────────────────────────────────────────────────
 
 def _build_agents():
-    """Build the multi-agent hierarchy. Called once per session."""
+    """Build a single agent with one composite tool.
 
-    food_safety_agent = LlmAgent(
-        name="FoodSafetyExpert",
-        model=LIVE_MODEL,
-        description="Handles questions about restaurant inspections, food safety grades, and health violations.",
-        instruction=FOOD_SAFETY_PROMPT,
-        tools=[query_restaurant_inspections, query_311_complaints],
-    )
-
-    housing_agent = LlmAgent(
-        name="HousingExpert",
-        model=LIVE_MODEL,
-        description="Handles questions about buildings, housing violations, evictions, and living conditions.",
-        instruction=HOUSING_PROMPT,
-        tools=[query_hpd_violations, query_evictions, query_311_complaints],
-    )
-
-    safety_agent = LlmAgent(
-        name="SafetyExpert",
-        model=LIVE_MODEL,
-        description="Handles questions about neighborhood safety, crime data, and incident reports.",
-        instruction=SAFETY_PROMPT,
-        tools=[query_nypd_incidents],
-    )
-
-    construction_agent = LlmAgent(
-        name="ConstructionExpert",
-        model=LIVE_MODEL,
-        description="Handles questions about construction, permits, DOB filings, and development activity.",
-        instruction=CONSTRUCTION_PROMPT,
-        tools=[query_dob_permits, query_311_complaints],
-    )
-
-    transit_agent = LlmAgent(
-        name="TransitExpert",
-        model=LIVE_MODEL,
-        description="Handles questions about subway access, nearby stations, and train routes.",
-        instruction=TRANSIT_PROMPT,
-        tools=[query_subway_entrances],
-    )
+    Gemini Live can only reliably do ONE tool call per turn. So we use
+    a single investigate_location() tool that geocodes + queries all
+    relevant datasets + pushes cards/pins in one shot.
+    """
 
     root_agent = LlmAgent(
         name="AskNYC",
         model=LIVE_MODEL,
         instruction=ROOT_PROMPT,
-        tools=[geocode_location, push_map_event, google_search],
-        sub_agents=[
-            food_safety_agent,
-            housing_agent,
-            safety_agent,
-            construction_agent,
-            transit_agent,
-        ],
+        tools=[investigate_location],
     )
 
     return root_agent
@@ -247,6 +344,10 @@ class GeminiSession:
         self.state = SessionState(session_id=session_id)
         self._live_queue: Optional[LiveRequestQueue] = None
         self._running = False
+        self._session_alive = False
+        self._run_task: Optional[asyncio.Task] = None
+        self._runner = None
+        self._root_agent = None
 
     async def start(self):
         """Build agents and initialize the ADK runner."""
@@ -254,14 +355,13 @@ class GeminiSession:
         _dashboard_callback = self.dashboard_send
 
         self._running = True
-        self._live_queue = LiveRequestQueue()
 
         # Build multi-agent hierarchy
-        root_agent = _build_agents()
+        self._root_agent = _build_agents()
 
         self._runner = Runner(
             app_name="ask-nyc",
-            agent=root_agent,
+            agent=self._root_agent,
             session_service=_adk_session_service,
         )
 
@@ -273,10 +373,23 @@ class GeminiSession:
         )
 
         await self.dashboard_send({"type": "agent_state", "state": "idle"})
+        print(f"[GeminiSession {self.session_id}] initialized (not yet streaming)")
 
-    async def run(self):
-        """Main loop: run ADK live session, dispatch events to dashboard."""
-        run_config = RunConfig(
+    async def _start_live_stream(self):
+        """Start (or restart) the ADK live stream."""
+        # Close previous queue if any
+        if self._live_queue:
+            try:
+                self._live_queue.close()
+            except Exception:
+                pass
+
+        self._live_queue = LiveRequestQueue()
+        self._session_alive = True
+        print(f"[GeminiSession {self.session_id}] starting live stream...")
+
+    def _build_run_config(self) -> RunConfig:
+        return RunConfig(
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Puck")
@@ -288,22 +401,77 @@ class GeminiSession:
             streaming_mode=StreamingMode.BIDI,
         )
 
-        try:
-            async for event in self._runner.run_live(
-                user_id="asknyc-user",
-                session_id=self.session_id,
-                live_request_queue=self._live_queue,
-                run_config=run_config,
-            ):
-                if not self._running:
-                    break
-                await self._dispatch_event(event)
-        except Exception as e:
-            print(f"[GeminiSession {self.session_id}] run_live error: {e}")
+    async def run(self):
+        """Main loop: run ADK live session, dispatch events to dashboard.
+
+        Does NOT start Gemini immediately — waits for first input to avoid
+        idle timeout burning API credits. After a session dies (timeout/error),
+        waits for the next input before reconnecting.
+        """
+        # Wait for first input before starting the live stream
+        print(f"[GeminiSession {self.session_id}] waiting for first input before starting Gemini...")
+        while self._running and not self._session_alive:
+            await asyncio.sleep(0.2)
+
+        while self._running:
+            try:
+                print(f"[GeminiSession {self.session_id}] run_live started")
+                async for event in self._runner.run_live(
+                    user_id="asknyc-user",
+                    session_id=self.session_id,
+                    live_request_queue=self._live_queue,
+                    run_config=self._build_run_config(),
+                ):
+                    if not self._running:
+                        break
+                    await self._dispatch_event(event)
+            except Exception as e:
+                print(f"[GeminiSession {self.session_id}] run_live error: {e}")
+
+            self._session_alive = False
             await self.dashboard_send({"type": "agent_state", "state": "idle"})
+
+            if not self._running:
+                break
+
+            # Wait for next input to trigger reconnect
+            print(f"[GeminiSession {self.session_id}] session ended, will reconnect on next input")
+            while self._running and not self._session_alive:
+                await asyncio.sleep(0.2)
+
+            if self._running:
+                print(f"[GeminiSession {self.session_id}] reconnecting live stream...")
+
+    async def _ensure_alive(self):
+        """Restart the live queue if the session died (idle timeout)."""
+        if not self._session_alive and self._running:
+            print(f"[GeminiSession {self.session_id}] restarting live queue for new input")
+            await self._start_live_stream()
 
     async def _dispatch_event(self, event):
         """Parse an ADK event and push appropriate messages to the dashboard."""
+        # Debug: log all event types
+        event_info = []
+        if event.content and event.content.parts:
+            for p in event.content.parts:
+                if hasattr(p, 'inline_data') and p.inline_data:
+                    event_info.append('audio')
+                if hasattr(p, 'text') and p.text:
+                    event_info.append(f'text:{p.text[:60]}')
+                if hasattr(p, 'function_call') and p.function_call:
+                    event_info.append(f'fn_call:{p.function_call.name}')
+                if hasattr(p, 'function_response') and p.function_response:
+                    event_info.append(f'fn_resp:{p.function_response.name}')
+        if event.actions:
+            event_info.append(f'actions:{event.actions}')
+        if event.turn_complete:
+            event_info.append('turn_complete')
+        if event.input_transcription:
+            event_info.append(f'in_transcript:{event.input_transcription[:40]}')
+        if event.output_transcription:
+            event_info.append(f'out_transcript:{event.output_transcription[:40]}')
+        if event_info and 'audio' not in event_info:
+            print(f"[GeminiSession {self.session_id}] event: {', '.join(event_info)}")
 
         # ── Audio output (agent speaking) ────────────────────────────────
         if event.content and event.content.parts:
@@ -399,6 +567,7 @@ class GeminiSession:
 
     async def send_audio_frame(self, data: str):
         """Queue a base64 PCM audio chunk from the phone."""
+        await self._ensure_alive()
         if self._live_queue:
             pcm_bytes = base64.b64decode(data)
             self._live_queue.send_realtime(
@@ -408,18 +577,22 @@ class GeminiSession:
 
     async def send_video_frame(self, data: str):
         """Queue a base64 JPEG video frame from the phone."""
+        await self._ensure_alive()
         if self._live_queue:
             jpeg_bytes = base64.b64decode(data)
             self._live_queue.send_realtime(
                 types.Blob(data=jpeg_bytes, mime_type="image/jpeg")
             )
+        print(f"[GeminiSession {self.session_id}] video frame queued ({len(data)} chars)")
 
     async def send_text(self, text: str):
         """Send a text query into the live session."""
+        await self._ensure_alive()
         if self._live_queue:
             self._live_queue.send_content(
                 types.Content(role="user", parts=[types.Part(text=text)])
             )
+        print(f"[GeminiSession {self.session_id}] text query queued: {text[:80]}")
         await self.dashboard_send({"type": "agent_state", "state": "processing"})
 
     async def stop(self):

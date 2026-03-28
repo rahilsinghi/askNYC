@@ -81,10 +81,16 @@ async def dashboard_ws(websocket: WebSocket):
 
             elif msg_type == "dashboard_query":
                 # Image upload + text query from dashboard
-                if msg.get("image"):
-                    await session.send_video_frame(msg["image"])
-                if msg.get("text"):
-                    await session.send_text(msg["text"])
+                has_image = bool(msg.get("image"))
+                text = msg.get("text", "")
+                print(f"[ws] dashboard_query received: image={has_image}, text={text[:80]}")
+                try:
+                    if has_image:
+                        await session.send_video_frame(msg["image"])
+                    if text:
+                        await session.send_text(text)
+                except Exception as e:
+                    print(f"[ws] dashboard_query error: {e}")
 
     except WebSocketDisconnect:
         pass
