@@ -53,33 +53,15 @@ What needs to happen:
 
 ## Priority 2 — Demo Polish (High impact on judging scores)
 
-### 2.1 Mapbox GL JS Integration
+### 2.1 Mapbox GL JS Integration — DONE
 
-**Status:** Package installed (`mapbox-gl` in package.json), component is CSS-only placeholder
+**Status:** Complete. MiniMap component has full Mapbox integration with pin rendering.
 **Files:** `frontend/components/dashboard/MiniMap.tsx`
-**Blocked by:** `NEXT_PUBLIC_MAPBOX_TOKEN` in `frontend/.env.local`
 
-What needs to happen:
-- Sign up at mapbox.com → copy default public token → add to `.env.local`
-- Replace CSS-only map in `MiniMap.tsx` with real Mapbox GL JS instance
-- Handle `map_event` WebSocket messages:
-  - `pin` → add marker at lat/lng with source-colored icon
-  - `zoom` → fly to coordinates
-  - `circle` → draw radius circle overlay
-- Color-code pins by data source (green=health, amber=complaints, blue=permits, red=NYPD)
-- Add smooth fly-to animation when new pins arrive
-- Current MiniMap already has the legend UI — just needs real map underneath
+### 2.2 Tool Badge → Data Card Animation Pipeline — DONE
 
-### 2.2 Tool Badge → Data Card Animation Pipeline
-
-**Status:** Individual pieces work (demo mode proves it), needs real-data wiring
+**Status:** Complete. Wired to real WebSocket events, animations working end-to-end.
 **Files:** `frontend/app/dashboard/page.tsx`, `frontend/components/dashboard/DataCard.tsx`
-
-What needs to happen:
-- Verify `tool_call` → `data_card` event sequence renders correctly with live Gemini data
-- Test staggered card entry animation with real timing (not demo's fixed 800ms intervals)
-- Verify badge shimmer animation triggers on `tool_call` pending → complete transition
-- Test with all 5 data source categories rendering simultaneously
 
 ### 2.3 Detection Overlay
 
@@ -155,7 +137,7 @@ What needs to happen:
 
 ---
 
-## Priority 4 — Deployment & Infrastructure — DONE
+## Priority 4 — Deployment & Infrastructure — DONE (includes CI/CD auto-deploy)
 
 ### 4.1 Google Cloud Run Deployment — DONE
 
@@ -287,9 +269,10 @@ Referenced in CLAUDE.md project structure but doesn't exist. Should contain:
 - [ ] Run through all 3 demo scenarios with real API calls
 
 ### Day 1 Evening (March 27, 6pm-10pm)
-- [ ] Deploy backend to Google Cloud Run
-- [ ] Deploy frontend to Vercel
-- [ ] Test phone → deployed backend (HTTPS enables camera)
+- [x] Deploy backend to Google Cloud Run — DONE
+- [x] Deploy frontend to Cloud Run — DONE
+- [x] Test phone → deployed backend (HTTPS enables camera) — DONE
+- [x] Set up Cloud Build CI/CD auto-deploy on push to main — DONE
 - [ ] Prepare physical demo cards (print Street View photos)
 
 ### Day 2 Morning (March 28, 9am-12pm)

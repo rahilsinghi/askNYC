@@ -100,12 +100,14 @@ ask-nyc/
 │   │   │   └── Waveform.tsx
 │   │   ├── remote/
 │   │   │   └── MicButton.tsx
-│   │   └── archive/
-│   │       └── SessionCard.tsx
+│   │   ├── archive/
+│   │   │   └── SessionCard.tsx
+│   │   └── SettingsPanel.tsx      ← demo toggle, volume, mute
 │   ├── hooks/
 │   │   ├── useWebSocket.ts      ← WS connection + reconnect
 │   │   ├── useAudioPlayer.ts    ← plays agent audio chunks
-│   │   └── useCameraCapture.ts  ← getUserMedia + frame capture
+│   │   ├── useCameraCapture.ts  ← getUserMedia + frame capture
+│   │   └── useSettings.ts       ← settings state (demo, volume, mute)
 │   ├── lib/
 │   │   ├── types.ts             ← all shared TypeScript types
 │   │   └── constants.ts         ← WS_URL, colors, dataset IDs
@@ -124,6 +126,7 @@ ask-nyc/
 │   │   └── session_service.py   ← in-memory session store
 │   └── models/
 │       └── schemas.py           ← Pydantic models
+├── cloudbuild.yaml              ← CI/CD: auto-deploy on push to main
 └── docs/
     ├── STITCH_PROMPT.md         ← design system + screen specs
     └── DATA_SOURCES.md          ← Socrata API reference
@@ -354,7 +357,9 @@ Run these queries manually before the demo. Know the answers. The "surprise" is 
 7. Phone remote page (remote/page.tsx)
 8. Map pins (MiniMap.tsx) — nice to have, do last
 
-**Hackathon minimum viable demo:** Items 1–6 working. The rest is polish.
+9. CI/CD pipeline (cloudbuild.yaml) — auto-deploys on push to main
+
+**Hackathon minimum viable demo:** Items 1–6 working. The rest is polish. CI/CD (item 9) is set up and operational.
 
 ---
 
