@@ -51,4 +51,7 @@ app.include_router(ws_router, prefix="/ws")
 app.include_router(recommend_router)
 
 
-# Routes are now in routers/ws.py
+@app.get("/sessions")
+async def list_sessions():
+    """Return all completed sessions (for archive + insights pages)."""
+    return {"sessions": session_service.get_all()}
