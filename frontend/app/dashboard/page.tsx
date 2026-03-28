@@ -13,6 +13,9 @@ export default function DashboardPage() {
   const demo = useDemoMode()
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)
 
+  // Show remote-captured image on dashboard (overrides manual upload)
+  const displayImage = ws.capturedImage || uploadedImage
+
   // Use WS data when backend is connected, demo data when not
   const isLive = ws.isConnected
   const agentState   = isLive ? ws.agentState   : demo.agentState
@@ -21,8 +24,8 @@ export default function DashboardPage() {
   const transcript   = isLive ? ws.transcript   : demo.transcript
 
   const handleSendQuery = useCallback((text: string) => {
-    ws.sendQuery(uploadedImage, text)
-  }, [ws, uploadedImage])
+    ws.sendQuery(displayImage, text)
+  }, [ws, displayImage])
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -70,7 +73,7 @@ export default function DashboardPage() {
         <CameraFeed
           detection={ws.detection}
           remoteConnected={ws.remoteConnected}
-          uploadedImage={uploadedImage}
+          uploadedImage={displayImage}
           onImageUpload={setUploadedImage}
           onImageClear={() => setUploadedImage(null)}
           mapCenter={ws.mapCenter}
@@ -94,7 +97,7 @@ export default function DashboardPage() {
         remoteUrl={ws.remoteUrl}
         remoteConnected={ws.remoteConnected}
         onSendQuery={isLive ? handleSendQuery : undefined}
-        hasImage={!!uploadedImage}
+        hasImage={!!displayImage}
         sessionSummary={ws.sessionSummary}
       />
     </div>
