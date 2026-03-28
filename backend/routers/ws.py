@@ -12,7 +12,7 @@ Remote and dashboard share a session_id to link them.
 import asyncio
 import json
 import uuid
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from services.gemini_service import GeminiSession
 from services.session_service import SessionService
 
@@ -24,11 +24,14 @@ _sessions: dict[str, GeminiSession] = {}
 # Active dashboard WebSockets: session_id → WebSocket
 _dashboards: dict[str, WebSocket] = {}
 
+# Session service reference (set from app lifespan)
+_session_service: SessionService | None = None
+
 
 # ─── Dashboard WebSocket ──────────────────────────────────────────────────────
 
 @router.websocket("/ws/dashboard")
-async def dashboard_ws(websocket: WebSocket, request: Request):
+async def dashboard_ws(websocket: WebSocket):
     """
     The main Ask NYC dashboard connects here.
 
@@ -82,8 +85,8 @@ async def dashboard_ws(websocket: WebSocket, request: Request):
         state = await session.stop()
 
         # Save to session store
-        session_service: SessionService = request.app.state.session_service
-        session_service.save(state)
+        if _session_service:
+            _session_service.save(state)
 
         _sessions.pop(session_id, None)
         _dashboards.pop(session_id, None)

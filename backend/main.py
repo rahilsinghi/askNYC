@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 import os
 from dotenv import load_dotenv
 
+from routers import ws as ws_module
 from routers.ws import router as ws_router
 from services.session_service import SessionService
 
@@ -24,6 +25,7 @@ session_service = SessionService()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.session_service = session_service
+    ws_module._session_service = session_service
     print("✅ Ask NYC backend started")
     yield
     print("👋 Ask NYC backend shutting down")

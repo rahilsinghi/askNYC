@@ -40,7 +40,7 @@ from models.schemas import DataCard, SessionState
 
 # ─── Model Configuration ────────────────────────────────────────────────────
 
-LIVE_MODEL = "gemini-3.1-flash-live-preview"
+LIVE_MODEL = "gemini-live-2.5-flash-native-audio"
 
 # ─── System Prompts ──────────────────────────────────────────────────────────
 
