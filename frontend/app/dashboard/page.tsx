@@ -7,6 +7,7 @@ import MiniMap from '@/components/dashboard/MiniMap'
 import IntelligenceBrief from '@/components/dashboard/IntelligenceBrief'
 import SearchInput from '@/components/dashboard/SearchInput'
 import DashboardLayout from '@/components/dashboard/DashboardLayout'
+import MapCardOverlay from '@/components/dashboard/MapCardOverlay'
 import { useDashboardWs } from '@/hooks/useWebSocket'
 import { useDemoMode } from '@/hooks/useDemoMode'
 
@@ -116,6 +117,14 @@ function DashboardContent() {
           />
         </div>
 
+        {/* ─── Level 0.5: Floating Data Cards on Map ─────────────────────── */}
+        <MapCardOverlay
+          cards={cards}
+          toolCalls={toolCalls}
+          transcript={transcript}
+          agentState={agentState}
+        />
+
         {/* ─── Level 1: UI Overlay ─────────────────────────────────────────── */}
         <div className="relative z-10 flex w-full h-full pointer-events-none">
           <div className="flex-1 flex flex-col items-center justify-between py-6 px-6 relative">
@@ -183,7 +192,7 @@ function DashboardContent() {
         </div>
 
         {/* ─── Level 2: Camera PiP ─────────────────────────────────────────── */}
-        <div className="fixed bottom-24 left-24 z-20 pointer-events-auto">
+        <div className="fixed bottom-24 right-[420px] z-20 pointer-events-auto">
           <div className="w-[160px] h-[100px] rounded-xl overflow-hidden border border-white/10 shadow-2xl bg-slate-900/60 backdrop-blur-sm pip-camera">
             <CameraFeed
               detection={ws.detection}
