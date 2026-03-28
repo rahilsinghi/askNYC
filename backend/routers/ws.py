@@ -13,6 +13,7 @@ import asyncio
 import json
 import logging
 import uuid
+from datetime import datetime
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from services.gemini_service import GeminiSession
 from services.session_service import SessionService
@@ -122,7 +123,17 @@ async def dashboard_ws(websocket: WebSocket):
         try:
             await websocket.send_json({
                 "type": "session_complete",
-                "session_id": session_id,
+                "session": {
+                    "session_id": state.session_id,
+                    "location_name": state.location_name or "Unknown location",
+                    "lat": state.lat,
+                    "lng": state.lng,
+                    "started_at": state.started_at.isoformat(),
+                    "ended_at": datetime.now().isoformat(),
+                    "cards": [c.model_dump() for c in state.cards],
+                    "datasets_queried": state.datasets_queried,
+                    "anomaly_found": state.anomaly_found,
+                },
             })
         except Exception:
             pass

@@ -189,8 +189,8 @@ async def query_dob_permits(
             f"gis_latitude IS NOT NULL"
             f" AND gis_latitude > '{lat_min:.6f}'"
             f" AND gis_latitude < '{lat_max:.6f}'"
-            f" AND gis_longitude > '{lng_max:.6f}'"
-            f" AND gis_longitude < '{lng_min:.6f}'"
+            f" AND gis_longitude > '{lng_min:.6f}'"
+            f" AND gis_longitude < '{lng_max:.6f}'"
         ),
         "$order": "filing_date DESC",
         "$limit": "20",
