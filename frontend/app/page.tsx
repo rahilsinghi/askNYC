@@ -80,8 +80,9 @@ export default function SplashPage() {
         if (!res.ok) throw new Error('Failed to fetch sessions');
         return res.json();
       })
-      .then((data: SessionSummary[]) => {
-        setSessions(data);
+      .then((data: { sessions: SessionSummary[] } | SessionSummary[]) => {
+        const list = Array.isArray(data) ? data : (data.sessions ?? []);
+        setSessions(list);
         setSessionsLoaded(true);
       })
       .catch(() => {

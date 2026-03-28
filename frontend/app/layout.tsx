@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Syne, DM_Mono } from "next/font/google";
-import "mapbox-gl/dist/mapbox-gl.css";
 import "./globals.css";
 
 const syne = Syne({

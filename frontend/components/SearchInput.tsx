@@ -3,6 +3,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Mic, Command } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface SpeechResult {
   readonly isFinal: boolean;

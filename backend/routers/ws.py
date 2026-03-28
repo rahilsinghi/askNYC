@@ -187,6 +187,21 @@ async def remote_ws(websocket: WebSocket, session_id: str = None):
             elif msg_type == "video_frame":
                 await session.send_video_frame(msg["data"])
 
+            elif msg_type == "capture_frame":
+                # High-quality snapshot: send to Gemini AND forward to dashboard
+                frame_data = msg.get("data", "")
+                logger.info("capture_frame received: %d chars", len(frame_data))
+                await session.send_video_frame(frame_data)
+                dashboard = _dashboards.get(session_id)
+                if dashboard:
+                    try:
+                        await dashboard.send_json({
+                            "type": "captured_image",
+                            "data": frame_data,
+                        })
+                    except Exception:
+                        pass
+
             elif msg_type == "user_start_speaking":
                 dashboard = _dashboards.get(session_id)
                 if dashboard:
