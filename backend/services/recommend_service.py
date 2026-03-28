@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 # ─── Gemini Client ──────────────────────────────────────────────────────────
 
-GEMINI_MODEL = "gemini-2.5-flash-preview-05-20"
+GEMINI_MODEL = "gemini-2.5-flash"
 
 def _get_client() -> genai.Client:
     api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GOOGLE_GEMINI_API_KEY")
