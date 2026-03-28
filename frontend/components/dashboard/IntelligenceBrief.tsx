@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import { AgentState, DataCard as DataCardType, ToolCall } from '@/lib/types'
+import { AgentState, DataCard as DataCardType, ToolCall, SessionSummary } from '@/lib/types'
 import Waveform from './Waveform'
 import DataCard from './DataCard'
 
@@ -16,6 +16,7 @@ interface IntelligenceBriefProps {
   remoteConnected: boolean
   onSendQuery?: (text: string) => void
   hasImage?: boolean
+  sessionSummary?: SessionSummary | null
 }
 
 const STATE_LABEL: Record<AgentState, string> = {
@@ -42,6 +43,7 @@ export default function IntelligenceBrief({
   remoteConnected,
   onSendQuery,
   hasImage,
+  sessionSummary,
 }: IntelligenceBriefProps) {
   const stateColor = STATE_COLOR[agentState]
   const stateLabel = STATE_LABEL[agentState]
@@ -75,9 +77,6 @@ export default function IntelligenceBrief({
           </h1>
         </div>
         <div className="flex gap-2 pt-1">
-          <button className="w-7 h-7 rounded-md border border-border bg-surface flex items-center justify-center text-muted hover:text-[#f4f4f5] transition-colors text-[11px]">
-            ⚙
-          </button>
           {/* Remote status indicator */}
           <button
             className="w-7 h-7 rounded-md border flex items-center justify-center"
@@ -218,30 +217,31 @@ export default function IntelligenceBrief({
           </div>
         ) : (
           <div>
-            <div className="flex items-center justify-between mb-2.5">
-              <p className="font-mono text-[8px] tracking-[0.2em] text-muted">RECENT EXPLORATIONS</p>
-              <p className="font-mono text-[8px] text-green cursor-pointer hover:text-[#6aad0f]">View All</p>
-            </div>
-            <div className="flex gap-2 items-stretch">
-              {[
-                { name: 'High Line', time: '2H AGO', color: '#1a2a1a' },
-                { name: 'Chelsea Market', time: '5H AGO', color: '#1a1a2a' },
-              ].map(({ name, time, color }) => (
-                <div
-                  key={name}
-                  className="flex-1 bg-surface border border-border rounded-md p-2 flex items-center gap-2 cursor-pointer hover:border-border2 transition-colors"
-                >
-                  <div className="w-7 h-[22px] rounded-[3px] flex-shrink-0" style={{ background: color }}/>
+            <p className="font-mono text-[8px] tracking-[0.2em] text-muted mb-2.5">RECENT EXPLORATIONS</p>
+            {sessionSummary ? (
+              <div className="flex gap-2 items-stretch">
+                <div className="flex-1 bg-surface border border-border rounded-md p-2 flex items-center gap-2">
+                  <div className="w-7 h-[22px] rounded-[3px] flex-shrink-0" style={{ background: '#1a2a1a' }}/>
                   <div>
-                    <p className="font-mono text-[9px] text-[#f4f4f5]">{name}</p>
-                    <p className="font-mono text-[8px] text-muted mt-0.5">{time}</p>
+                    <p className="font-mono text-[9px] text-[#f4f4f5]">{sessionSummary.location_name}</p>
+                    <p className="font-mono text-[8px] text-muted mt-0.5">
+                      {(() => {
+                        const ended = sessionSummary.ended_at ?? sessionSummary.started_at
+                        const diff = Date.now() - new Date(ended).getTime()
+                        const mins = Math.floor(diff / 60000)
+                        if (mins < 1) return 'JUST NOW'
+                        if (mins < 60) return `${mins}M AGO`
+                        const hrs = Math.floor(mins / 60)
+                        if (hrs < 24) return `${hrs}H AGO`
+                        return `${Math.floor(hrs / 24)}D AGO`
+                      })()}
+                    </p>
                   </div>
                 </div>
-              ))}
-              <div className="w-9 h-9 rounded-lg bg-green flex items-center justify-center text-black font-display font-bold text-lg cursor-pointer hover:bg-[#6aad0f] transition-colors flex-shrink-0 self-center">
-                +
               </div>
-            </div>
+            ) : (
+              <p className="font-mono text-[9px] text-dim">No recent explorations</p>
+            )}
           </div>
         )}
       </div>

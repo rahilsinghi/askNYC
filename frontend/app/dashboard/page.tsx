@@ -73,6 +73,7 @@ export default function DashboardPage() {
           uploadedImage={uploadedImage}
           onImageUpload={setUploadedImage}
           onImageClear={() => setUploadedImage(null)}
+          mapCenter={ws.mapCenter}
         />
 
         {/* Mini map */}
@@ -94,6 +95,7 @@ export default function DashboardPage() {
         remoteConnected={ws.remoteConnected}
         onSendQuery={isLive ? handleSendQuery : undefined}
         hasImage={!!uploadedImage}
+        sessionSummary={ws.sessionSummary}
       />
     </div>
   )

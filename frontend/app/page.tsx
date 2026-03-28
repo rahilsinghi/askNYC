@@ -85,7 +85,7 @@ export default function SplashPage() {
           idText="Card 1"
           title="Blue Note Jazz Club"
           type="location"
-          buttons={['Location', 'Info']}
+
           rating={4.8}
           className="absolute left-[15%] top-[45%]"
           delay={0.2}
@@ -96,7 +96,7 @@ export default function SplashPage() {
           idText="Card 2"
           title="Smalls Jazz Club"
           type="location"
-          buttons={['Schedule', 'Reviews']}
+
           className="absolute right-[45%] top-[55%]"
           delay={0.4}
         />
@@ -106,7 +106,7 @@ export default function SplashPage() {
           idText="Card 3"
           title="Django"
           type="location"
-          buttons={['Vibe', 'Ratings']}
+
           rating={4.0}
           className="absolute left-[40%] top-[65%]"
           delay={0.6}

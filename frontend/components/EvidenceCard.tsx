@@ -13,10 +13,9 @@ interface EvidenceCardProps {
     rating?: number;
     className?: string;
     delay?: number;
-    buttons?: string[];
 }
 
-export default function EvidenceCard({ idText, title, type, rating, buttons, className, delay = 0 }: EvidenceCardProps) {
+export default function EvidenceCard({ idText, title, type, rating, className, delay = 0 }: EvidenceCardProps) {
     return (
         <motion.div
             initial={{ scale: 0.95, opacity: 0, y: 20 }}
@@ -34,19 +33,12 @@ export default function EvidenceCard({ idText, title, type, rating, buttons, cla
                 </div>
             </div>
 
-            <div className="flex items-center gap-2 mb-6">
-                {buttons?.map((btn, i) => (
-                    <button key={i} className="px-5 py-2 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/70 hover:bg-white/10 transition-all uppercase tracking-[0.1em]">
-                        {btn}
-                    </button>
-                ))}
-                {rating && (
-                    <div className="flex items-center gap-1.5 ml-auto">
-                        <span className="text-sm text-warm-amber font-bold">{rating}</span>
-                        <Star className="w-4 h-4 text-warm-amber fill-warm-amber" />
-                    </div>
-                )}
-            </div>
+            {rating && (
+                <div className="flex items-center gap-1.5 mb-6">
+                    <span className="text-sm text-warm-amber font-bold">{rating}</span>
+                    <Star className="w-4 h-4 text-warm-amber fill-warm-amber" />
+                </div>
+            )}
 
             <div className="flex items-center justify-between pt-2 border-t border-white/5">
                 <div className="flex items-center gap-2">

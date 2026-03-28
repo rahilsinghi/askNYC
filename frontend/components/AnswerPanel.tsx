@@ -34,22 +34,23 @@ export default function AnswerPanel() {
                         </div>
 
                         <div className="space-y-3">
+                            <p className="text-[10px] font-bold text-electric-cyan uppercase tracking-[0.15em]">Blue Note Jazz Club</p>
                             <p className="text-base leading-relaxed text-white/70">
-                                <span className="font-bold text-white">Blue Note:</span> Slegant body text bestvemen: in Manhattan tonight, olizens browsing each pounds in Mannotan are the nacraro landmark highlightes and modliionai highlights, schedules. <a href="#" className="text-electric-cyan font-bold hover:text-cyan-glow transition-colors underline decoration-electric-cyan/30">https://Blue Note Jazz Club.</a>
+                                Legendary Greenwich Village jazz club. Shows nightly at 8pm and 10:30pm. All ages.
                             </p>
                         </div>
 
                         <div className="space-y-3">
-                            <h4 className="font-bold text-white text-lg">Smalls</h4>
+                            <p className="text-[10px] font-bold text-electric-cyan uppercase tracking-[0.15em]">Smalls Jazz Club</p>
                             <p className="text-base leading-relaxed text-white/70">
-                                The Django with imigiatriont to more about use the beckest and create shorows highrators schedules, tonomarts, char and matiown chasmeirts, and highlights. <a href="#" className="text-electric-cyan font-bold hover:text-cyan-glow transition-colors underline decoration-electric-cyan/30">https://Blue Note, Smalls.</a>
+                                Intimate basement venue in the West Village. Late night jam sessions after midnight.
                             </p>
                         </div>
 
                         <div className="space-y-3 pb-12">
-                            <h4 className="font-bold text-white text-lg">The Django</h4>
+                            <p className="text-[10px] font-bold text-electric-cyan uppercase tracking-[0.15em]">The Django</p>
                             <p className="text-base leading-relaxed text-white/70">
-                                The Django with highlights considers recommendation, etegaineness notims, and highlights, condent rares and schedules, tommarts, sheddes, and map <a href="#" className="text-electric-cyan font-bold hover:text-cyan-glow transition-colors underline decoration-electric-cyan/30">links. Wherever this map.</a>
+                                Jazz and live music in the cellar of The Roxy Hotel, Tribeca. Cocktail bar atmosphere.
                             </p>
                         </div>
                     </section>

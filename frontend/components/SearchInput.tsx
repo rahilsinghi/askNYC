@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Mic, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 export default function SearchInput() {
     return (
@@ -14,14 +14,9 @@ export default function SearchInput() {
                     placeholder="Where can I find the best live jazz in Manhattan tonight?..."
                     className="bg-transparent border-none outline-none flex-1 text-white/90 placeholder:text-white/20 text-sm font-medium"
                 />
-                <div className="flex items-center gap-4">
-                    <button className="p-2 text-white/40 hover:text-electric-cyan transition-colors">
-                        <Mic className="w-5 h-5" />
-                    </button>
-                    <button className="w-10 h-10 rounded-full bg-electric-cyan flex items-center justify-center text-midnight shadow-[0_0_20px_rgba(65,228,244,0.4)] hover:scale-105 active:scale-95 transition-all">
-                        <ArrowRight className="w-5 h-5 stroke-[3]" />
-                    </button>
-                </div>
+                <button className="w-10 h-10 rounded-full bg-electric-cyan flex items-center justify-center text-midnight shadow-[0_0_20px_rgba(65,228,244,0.4)] hover:scale-105 active:scale-95 transition-all">
+                    <ArrowRight className="w-5 h-5 stroke-[3]" />
+                </button>
             </div>
         </div>
     );
