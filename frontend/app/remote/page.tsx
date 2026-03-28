@@ -11,7 +11,7 @@ function RemoteContent() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session') ?? ''
 
-  const { isConnected, isSpeaking, cameraActive, startSpeaking, stopSpeaking, captureFrame } = useRemoteWs(sessionId)
+  const { isConnected, isSpeaking, cameraActive, agentState, transcript, startSpeaking, stopSpeaking, captureFrame } = useRemoteWs(sessionId)
   const [showFlash, setShowFlash] = useState(false)
   const [captured, setCaptured] = useState(false)
 
@@ -118,6 +118,18 @@ function RemoteContent() {
               <span className="text-[8px] font-mono tracking-wider text-warm-amber uppercase">Mic On</span>
             </div>
           )}
+          {agentState === 'processing' && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-electric-cyan/10">
+              <div className="w-1.5 h-1.5 rounded-full bg-electric-cyan animate-pulse" />
+              <span className="text-[8px] font-mono tracking-wider text-electric-cyan uppercase">Thinking</span>
+            </div>
+          )}
+          {agentState === 'speaking' && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green/10">
+              <div className="w-1.5 h-1.5 rounded-full bg-green animate-pulse" />
+              <span className="text-[8px] font-mono tracking-wider text-green uppercase">Speaking</span>
+            </div>
+          )}
         </div>
       </header>
 
@@ -140,12 +152,23 @@ function RemoteContent() {
             <div className={`absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 rounded-bl-2xl transition-colors duration-300 ${isSpeaking ? 'border-warm-amber' : 'border-electric-cyan/60'}`} />
             <div className={`absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 rounded-br-2xl transition-colors duration-300 ${isSpeaking ? 'border-warm-amber' : 'border-electric-cyan/60'}`} />
 
-            <p className="text-[10px] font-mono tracking-[0.3em] text-white/30 uppercase">
-              {isSpeaking ? 'Listening...' : captured ? 'Now hold mic to ask' : 'Point at a location'}
+            <p className="text-[10px] font-mono tracking-[0.3em] text-white/30 uppercase text-center px-4">
+              {agentState === 'speaking' ? 'Agent is speaking...' :
+               agentState === 'processing' ? 'Analyzing location...' :
+               isSpeaking ? 'Listening...' :
+               captured ? 'Now hold mic to ask' :
+               'Point at a location'}
             </p>
           </div>
         )}
       </div>
+
+      {/* Transcript overlay — shows what Gemini is saying */}
+      {transcript && (agentState === 'speaking' || agentState === 'processing') && (
+        <div className="relative z-10 mx-6 mb-2 px-4 py-3 rounded-xl glass-pill max-h-24 overflow-y-auto">
+          <p className="text-xs text-white/80 leading-relaxed">{transcript}</p>
+        </div>
+      )}
 
       {/* Bottom controls */}
       <footer className="relative z-10 pb-12 pt-6 flex flex-col items-center gap-4">
@@ -176,6 +199,7 @@ function RemoteContent() {
             onStart={startSpeaking}
             onStop={stopSpeaking}
             disabled={!isConnected}
+            active={isSpeaking}
           />
 
           {/* Spacer to balance layout */}
