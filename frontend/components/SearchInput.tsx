@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Mic, Command } from 'lucide-react';
+import { ArrowRight, Mic, Command, ImagePlus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SpeechResult {
@@ -38,16 +38,39 @@ interface SpeechRecognitionInstance extends EventTarget {
 }
 
 interface SearchInputProps {
-  onSendQuery: (query: string) => void;
+  onSendQuery: (query: string, image?: string | null) => void;
   disabled?: boolean;
   hasImage?: boolean;
 }
 
-export default function SearchInput({ onSendQuery, disabled, hasImage }: SearchInputProps) {
+export default function SearchInput({ onSendQuery, disabled }: SearchInputProps) {
   const [query, setQuery] = useState('');
   const [isListening, setIsListening] = useState(false);
+  const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = useCallback((file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const size = 768;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const scale = Math.max(size / img.width, size / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const base64 = dataUrl.split(',')[1];
+      if (base64) setAttachedImage(base64);
+    };
+    img.src = URL.createObjectURL(file);
+  }, []);
 
   const getSpeechRecognition = useCallback((): SpeechRecognitionInstance | null => {
     const win = window as unknown as Record<string, unknown>;
@@ -59,9 +82,10 @@ export default function SearchInput({ onSendQuery, disabled, hasImage }: SearchI
   const handleSubmit = useCallback(() => {
     const trimmed = query.trim();
     if (!trimmed || disabled) return;
-    onSendQuery(trimmed);
+    onSendQuery(trimmed, attachedImage);
     setQuery('');
-  }, [query, onSendQuery, disabled]);
+    setAttachedImage(null);
+  }, [query, onSendQuery, disabled, attachedImage]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -82,7 +106,7 @@ export default function SearchInput({ onSendQuery, disabled, hasImage }: SearchI
 
     const recognition = getSpeechRecognition();
     if (!recognition) {
-      onSendQuery('__VOICE_FALLBACK__');
+      onSendQuery('__VOICE_FALLBACK__', attachedImage);
       return;
     }
 
@@ -103,8 +127,9 @@ export default function SearchInput({ onSendQuery, disabled, hasImage }: SearchI
         const final = transcript.trim();
         if (final) {
           setIsListening(false);
-          onSendQuery(final);
+          onSendQuery(final, attachedImage);
           setQuery('');
+          setAttachedImage(null);
         }
       }
     };
@@ -131,6 +156,26 @@ export default function SearchInput({ onSendQuery, disabled, hasImage }: SearchI
       transition={{ delay: 1.5, duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
       className="w-full max-w-4xl mx-auto"
     >
+      {/* Thumbnail preview */}
+      {attachedImage && (
+        <div className="flex items-center gap-3 mb-3 ml-4">
+          <div className="relative group">
+            <img
+              src={`data:image/jpeg;base64,${attachedImage}`}
+              alt="Attached"
+              className="w-14 h-14 rounded-xl object-cover border border-white/20 shadow-[0_0_20px_rgba(0,0,0,0.5)]"
+            />
+            <button
+              onClick={() => setAttachedImage(null)}
+              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+            >
+              <X className="w-3 h-3 text-white" />
+            </button>
+          </div>
+          <span className="text-[10px] font-mono tracking-wider text-cyan-400/70 uppercase">Photo attached — ask your question</span>
+        </div>
+      )}
+
       <div className={cn(
         "glass h-16 rounded-full flex items-center px-8 border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.6)] group focus-within:border-white/20 transition-all",
         disabled && "opacity-50 pointer-events-none"
@@ -151,18 +196,32 @@ export default function SearchInput({ onSendQuery, disabled, hasImage }: SearchI
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={hasImage ? "Analyze this evidence..." : "Identify active Manhattan jazz circuits..."}
+          placeholder={attachedImage ? "Ask about this location..." : "Identify active Manhattan jazz circuits..."}
           className="bg-transparent border-none outline-none flex-1 text-white text-base font-light placeholder:text-white/10 tracking-wide font-mono"
         />
 
-        <div className="flex items-center gap-6 ml-2">
+        <div className="flex items-center gap-3 ml-2">
+          {/* Image upload button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className={cn(
+              "w-9 h-9 rounded-full flex items-center justify-center transition-all",
+              attachedImage
+                ? "text-cyan-400 bg-cyan-400/10 border border-cyan-400/30"
+                : "text-white/25 hover:text-white/60 hover:bg-white/5"
+            )}
+            aria-label="Upload image"
+          >
+            <ImagePlus className="w-4 h-4" />
+          </button>
+
           {/* Mic button */}
           <button
             onClick={handleMicClick}
-            className="relative w-10 h-10 rounded-full flex items-center justify-center text-white/30 hover:text-white transition-all"
+            className="relative w-9 h-9 rounded-full flex items-center justify-center text-white/25 hover:text-white/60 transition-all"
             aria-label={isListening ? 'Stop listening' : 'Start voice input'}
           >
-            <Mic className="w-5 h-5" />
+            <Mic className="w-4 h-4" />
             <AnimatePresence>
               {isListening && (
                 <motion.div
@@ -180,13 +239,26 @@ export default function SearchInput({ onSendQuery, disabled, hasImage }: SearchI
           {/* Submit button */}
           <button
             onClick={handleSubmit}
-            className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 active:scale-95 transition-all"
+            disabled={disabled || !query.trim()}
+            className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 active:scale-95 transition-all disabled:opacity-30"
             aria-label="Submit"
           >
             <ArrowRight className="w-5 h-5 stroke-[3]" />
           </button>
         </div>
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const files = e.target.files;
+          if (files && files.length > 0) handleFile(files[0]);
+          e.target.value = '';
+        }}
+      />
     </motion.div>
   );
 }

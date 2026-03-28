@@ -9,7 +9,7 @@ import BootScreen from '@/components/BootScreen';
 import SettingsPanel from '@/components/SettingsPanel';
 import { useSettings } from '@/hooks/useSettings';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings } from 'lucide-react';
+import { Settings, ArrowRight } from 'lucide-react';
 import type { SessionSummary } from '@/lib/types';
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
@@ -189,12 +189,16 @@ export default function SplashPage() {
               <SearchInput onSendQuery={handleSearch} />
 
               {/* Dashboard link */}
-              <div className="flex justify-center mt-4">
+              <div className="flex justify-center mt-5">
                 <button
                   onClick={() => router.push('/dashboard')}
-                  className="text-xs font-mono text-white/20 hover:text-cyan-400/70 transition-colors tracking-wide"
+                  className="group relative px-6 py-2.5 rounded-full border border-cyan-400/20 bg-cyan-400/5 backdrop-blur-sm text-cyan-400/70 hover:text-cyan-300 hover:border-cyan-400/40 hover:bg-cyan-400/10 transition-all duration-300 text-xs font-mono tracking-[0.15em] uppercase"
                 >
-                  or go straight to dashboard &rarr;
+                  <span className="relative z-10 flex items-center gap-2">
+                    Launch Dashboard
+                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                  </span>
+                  <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-[0_0_25px_rgba(34,211,238,0.15)]" />
                 </button>
               </div>
             </motion.div>
