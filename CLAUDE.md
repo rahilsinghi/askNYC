@@ -27,9 +27,10 @@ This is a **2-day hackathon build** for the NYC Build With AI Hackathon @ NYU Ta
 │                    FRONTEND (Next.js 15)                     │
 │                                                             │
 │  /dashboard    Main screen (camera+map+brief) ──────────┐  │
-│  /remote       Phone page (camera+mic)         ─────┐   │  │
-│  /archive      Session history (real data)           │   │  │
-│  /             Splash / onboarding                  │   │  │
+│  /ask          Multi-agent recommendation page   ────┐  │  │
+│  /remote       Phone page (camera+mic)         ─────┐│  │  │
+│  /archive      Session history (real data)           ││  │  │
+│  /             Splash / onboarding                  ││  │  │
 └─────────────────────────────────────────────────────────────┘
          ▲ WebSocket (audio + map events)      │   │
          │                                     │   │
@@ -38,12 +39,14 @@ This is a **2-day hackathon build** for the NYC Build With AI Hackathon @ NYU Ta
 │                                                             │
 │  /ws/dashboard   Dashboard WebSocket (receives events)      │
 │  /ws/remote      Remote WebSocket (receives audio+video)    │
+│  /api/recommend  SSE: POST recommendation pipeline          │
 │  /sessions       REST: GET session history                  │
 │                                                             │
-│  GeminiService   ─── ADK agent + Gemini Live session        │
-│  SocrataService  ─── 7 NYC Open Data tool functions         │
+│  GeminiService    ─── ADK agent + Gemini Live session       │
+│  RecommendService ─── Multi-agent recommendation pipeline   │
+│  SocrataService   ─── 7 NYC Open Data tool functions        │
 │  GeocodingService ── Google Maps lat/lng lookup             │
-│  SessionService  ─── JSON-file session store (/tmp)          │
+│  SessionService   ─── JSON-file session store (/tmp)        │
 └─────────────────────────────────────────────────────────────┘
          │ tool calls (SoQL queries, ~500ms each)
          ▼
@@ -88,6 +91,7 @@ ask-nyc/
 │   ├── app/
 │   │   ├── page.tsx             ← splash/onboarding
 │   │   ├── dashboard/page.tsx   ← main dashboard (collapsible sidebar)
+│   │   ├── ask/page.tsx         ← multi-agent recommendation page
 │   │   ├── remote/page.tsx      ← phone remote
 │   │   ├── archive/page.tsx     ← session history (real data from /sessions)
 │   │   └── insights/page.tsx    ← aggregate analytics (real data from /sessions)
@@ -100,6 +104,12 @@ ask-nyc/
 │   │   │   ├── IntelligenceBrief.tsx
 │   │   │   ├── DataCard.tsx
 │   │   │   └── Waveform.tsx
+│   │   ├── ask/
+│   │   │   ├── AgentCard.tsx        ← individual agent status card
+│   │   │   ├── AgentGrid.tsx        ← grid of agent cards + progress bar
+│   │   │   ├── RecommendationCard.tsx ← scored recommendation with reasoning
+│   │   │   ├── QueryInput.tsx       ← input + demo prompt buttons
+│   │   │   └── ProgressTimeline.tsx ← PARSE→AGENTS→SYNTHESIS→RESULTS
 │   │   ├── remote/
 │   │   │   └── MicButton.tsx
 │   │   ├── archive/
@@ -107,6 +117,7 @@ ask-nyc/
 │   │   └── SettingsPanel.tsx      ← demo toggle, volume, mute
 │   ├── hooks/
 │   │   ├── useWebSocket.ts      ← WS connection + reconnect
+│   │   ├── useRecommend.ts      ← SSE client for /api/recommend + demo fallback
 │   │   ├── useAudioPlayer.ts    ← plays agent audio chunks
 │   │   ├── useCameraCapture.ts  ← getUserMedia + frame capture
 │   │   └── useSettings.ts       ← settings state (demo, volume, mute)
@@ -120,9 +131,11 @@ ask-nyc/
 │   ├── .env.example
 │   ├── Dockerfile
 │   ├── routers/
-│   │   └── ws.py                ← WebSocket endpoints
+│   │   ├── ws.py                ← WebSocket endpoints
+│   │   └── recommend.py         ← SSE endpoint for /api/recommend
 │   ├── services/
 │   │   ├── gemini_service.py    ← ADK agent + Gemini Live
+│   │   ├── recommend_service.py ← Multi-agent recommendation pipeline
 │   │   ├── socrata_service.py   ← 7 NYC Open Data tools
 │   │   ├── geocoding_service.py ← Google Maps geocoding
 │   │   └── session_service.py   ← in-memory session store
@@ -277,6 +290,48 @@ The model is instructed to call `investigate_location()` for EVERY question, cho
 - General → `general`
 
 **Model:** `gemini-2.5-flash-native-audio-latest` (stable live audio model; `gemini-3.1-flash-live-preview` exists but is unstable)
+
+---
+
+## Recommend Pipeline (`/ask` page)
+
+The `/ask` page is a text-based multi-agent recommendation engine — a second experience alongside the live dashboard.
+
+### Architecture
+
+```
+POST /api/recommend { query } → SSE stream
+  │
+  ├─ Gemini 2.5 Flash parses query → { location, intent, datasets }
+  ├─ Geocode location via Google Maps
+  ├─ Run 5-7 Socrata queries in parallel (asyncio.gather)
+  ├─ Gemini 2.5 Flash synthesizes → scored recommendation cards
+  └─ SSE complete
+```
+
+### SSE Event Protocol
+
+```
+event: plan         → { agents[], query, parsed_location, parsed_intent }
+event: agent_update → { agent_id, status: running|complete|error, summary? }
+event: recommendation → { name, address, score, score_breakdown, badges[], reasoning[] }
+event: complete     → { total_recommendations, query_time_ms }
+```
+
+### Key files
+- `backend/services/recommend_service.py` — Orchestration: parse_query() → geocode → parallel agents → synthesize
+- `backend/routers/recommend.py` — SSE endpoint (POST /api/recommend)
+- `frontend/hooks/useRecommend.ts` — SSE client with 4 hardcoded demo fallback sequences
+- `frontend/components/ask/` — AgentCard, AgentGrid, RecommendationCard, QueryInput, ProgressTimeline
+
+### Demo prompts (4 scenarios, max agent coverage)
+1. "Best pizza place to eat near Washington Square Park" → food (6 agents)
+2. "Safest neighborhood to move to in Brooklyn near a subway" → housing (7 agents)
+3. "What's happening with construction around Hudson Yards" → construction (6 agents)
+4. "Late night food options near Times Square that are clean" → food (6 agents)
+
+### Model
+Uses `gemini-2.5-flash-preview-05-20` (text API, not live audio) for both query parsing and synthesis. JSON output mode via `response_mime_type="application/json"`.
 
 ---
 
