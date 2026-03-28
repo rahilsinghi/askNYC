@@ -28,8 +28,14 @@ _sessions: dict[str, GeminiSession] = {}
 # Active dashboard WebSockets: session_id → WebSocket
 _dashboards: dict[str, WebSocket] = {}
 
+# Active remote WebSockets: session_id → WebSocket
+_remotes: dict[str, WebSocket] = {}
+
 # Session service reference (set from app lifespan)
 _session_service: SessionService | None = None
+
+# Message types that the remote phone needs to hear back from Gemini
+_REMOTE_FORWARD_TYPES = {"audio_chunk", "agent_state", "transcript"}
 
 HEARTBEAT_INTERVAL = 25  # seconds
 
@@ -64,12 +70,23 @@ async def dashboard_ws(websocket: WebSocket):
     _dashboards[session_id] = websocket
     logger.info("Dashboard connected: session %s", session_id)
 
-    # Dashboard-to-Gemini callback
+    # Gemini → Dashboard (+ forward audio/state to remote phone)
     async def send_to_dashboard(message: dict):
         try:
             await websocket.send_json(message)
         except Exception:
             pass  # Dashboard disconnected — suppress
+
+        # Forward audio, agent state, and transcript to the remote phone
+        # so the user hears Gemini's spoken response on their device
+        msg_type = message.get("type")
+        if msg_type in _REMOTE_FORWARD_TYPES:
+            remote = _remotes.get(session_id)
+            if remote:
+                try:
+                    await remote.send_json(message)
+                except Exception:
+                    pass  # Remote disconnected — suppress
 
     # Create and start Gemini session
     session = GeminiSession(
@@ -171,6 +188,7 @@ async def remote_ws(websocket: WebSocket, session_id: str = None):
         return
 
     session = _sessions[session_id]
+    _remotes[session_id] = websocket
     logger.info("Remote connected: session %s", session_id)
 
     await websocket.send_json({
@@ -196,10 +214,18 @@ async def remote_ws(websocket: WebSocket, session_id: str = None):
             msg_type = msg.get("type")
 
             if msg_type == "audio_frame":
-                await session.send_audio_frame(msg["data"])
+                data = msg.get("data", "")
+                if not data:
+                    logger.warning("Empty audio_frame received: session %s", session_id)
+                else:
+                    await session.send_audio_frame(data)
 
             elif msg_type == "video_frame":
-                await session.send_video_frame(msg["data"])
+                data = msg.get("data", "")
+                if not data or len(data) < 100:
+                    logger.warning("Empty/tiny video_frame received (%d chars): session %s", len(data), session_id)
+                else:
+                    await session.send_video_frame(data)
 
             elif msg_type == "capture_frame":
                 # High-quality snapshot: send to Gemini AND forward to dashboard
@@ -243,6 +269,7 @@ async def remote_ws(websocket: WebSocket, session_id: str = None):
         logger.exception("Remote error: session %s", session_id)
     finally:
         heartbeat_task.cancel()
+        _remotes.pop(session_id, None)
         logger.info("Remote cleanup complete: session %s", session_id)
         dashboard = _dashboards.get(session_id)
         if dashboard:

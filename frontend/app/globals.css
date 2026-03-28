@@ -21,6 +21,10 @@
   --color-cyan-glow: #15BFD2;
   --color-electric-cyan: #41E4F4;
   --color-gold-glow: #F2B35B;
+  --color-warm-amber: #F2B35B;
+  --color-amber-glow: #C7852D;
+  --color-green: #84cc16;
+  --color-red: #ef4444;
 
   --font-syne: var(--font-syne);
   --font-mono: var(--font-dm-mono);

@@ -9,7 +9,7 @@ import BootScreen from '@/components/BootScreen';
 import SettingsPanel from '@/components/SettingsPanel';
 import { useSettings } from '@/hooks/useSettings';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, ArrowRight } from 'lucide-react';
+import { Settings, ArrowRight, Camera } from 'lucide-react';
 import type { SessionSummary } from '@/lib/types';
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
@@ -189,7 +189,32 @@ export default function SplashPage() {
               <SearchInput onSendQuery={handleSearch} />
 
               {/* Navigation links */}
-              <div className="flex justify-center gap-3 mt-5">
+              <div className="flex justify-center gap-3 mt-5 flex-wrap">
+                <button
+                  onClick={() => {
+                    // Create a session via WS and redirect to remote page
+                    const wsUrl = WS_URL.replace(/^wss:/, 'wss:').replace(/^ws:/, 'ws:');
+                    const ws = new WebSocket(`${wsUrl}/ws/dashboard`);
+                    ws.onmessage = (e) => {
+                      try {
+                        const msg = JSON.parse(e.data);
+                        if (msg.type === 'session_ready' && msg.session_id) {
+                          router.push(`/remote?session=${msg.session_id}`);
+                        }
+                      } catch {}
+                    };
+                    ws.onerror = () => {
+                      router.push('/dashboard');
+                    };
+                  }}
+                  className="group relative px-6 py-2.5 rounded-full border border-amber-400/20 bg-amber-400/5 backdrop-blur-sm text-amber-400/70 hover:text-amber-300 hover:border-amber-400/40 hover:bg-amber-400/10 transition-all duration-300 text-xs font-mono tracking-[0.15em] uppercase"
+                >
+                  <span className="relative z-10 flex items-center gap-2">
+                    <Camera className="w-3.5 h-3.5" />
+                    Use Camera
+                  </span>
+                  <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-[0_0_25px_rgba(251,191,36,0.15)]" />
+                </button>
                 <button
                   onClick={() => router.push('/ask')}
                   className="group relative px-6 py-2.5 rounded-full border border-green/20 bg-green/5 backdrop-blur-sm text-green/70 hover:text-green hover:border-green/40 hover:bg-green/10 transition-all duration-300 text-xs font-mono tracking-[0.15em] uppercase"
