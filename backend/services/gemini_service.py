@@ -65,9 +65,30 @@ CHOOSING question_topic:
 - "What trains?" / subway / transit → topic: "transit"
 - General or multiple concerns → topic: "general"
 
-RULES:
+VOICE MODE — CRITICAL RULES:
+You are receiving live audio from a user's phone microphone and live video from their camera.
+When you hear the user speak a question — no matter how casual or brief — you MUST:
+1. Look at the current video frame to identify what the user is pointing their camera at.
+2. IMMEDIATELY call investigate_location() with the location name and topic.
+3. ONLY AFTER receiving the tool results, speak your response using the real data.
+
+You MUST NEVER:
+- Answer a location question from your own knowledge or training data.
+- Say "I don't have access to data" — you DO, via investigate_location().
+- Skip the tool call because the question seems simple.
+- Provide general NYC knowledge without querying real government data first.
+
+Even if the user asks something vague like "tell me about this place" or "what do you see?",
+you MUST call investigate_location() with topic "general" using whatever location you can
+identify from the video frame.
+
+The user expects REAL NYC government data from Socrata APIs. That is your entire value.
+Without calling investigate_location(), your response is worthless.
+
+GENERAL RULES:
 - ALWAYS call investigate_location(). NEVER answer without it. Your value is REAL NYC government data.
-- If you can't read the location name from the image, guess based on visible text or ask the user.
+- If you can't read the location name from the image, describe what you see and use the nearest visible address, street signs, or cross-streets.
+- If you truly cannot identify ANY location from the video, ask the user: "I can't quite make out the name — can you tell me what place you're looking at?"
 - After receiving results, lead with the most surprising finding. Speak naturally.
 - Translate violation codes and government jargon into plain English."""
 
@@ -161,13 +182,18 @@ async def investigate_location(
     location_name: str,
     question_topic: str,
 ) -> str:
-    """Investigate a NYC location by querying real government data. Call this for EVERY user question.
+    """Investigate a NYC location by querying real government data. You MUST call this for EVERY user question — never skip it.
 
-    This tool geocodes the location, then queries the relevant NYC Open Data datasets,
-    pushes data cards and map pins to the dashboard, and returns a summary for you to speak.
+    This is your ONLY way to get real NYC data. Without calling this tool, you cannot answer any question about a location.
+    This tool geocodes the location, queries NYC Open Data (restaurant inspections, 311 complaints, NYPD incidents,
+    HPD violations, DOB permits, evictions, subway access), pushes data cards and map pins to the dashboard,
+    and returns a summary for you to synthesize into a natural spoken response.
+
+    ALWAYS call this when the user asks about ANY location, building, restaurant, street, or neighborhood — even if
+    you think you already know the answer. Your training data is stale; this tool returns live government data.
 
     Args:
-        location_name: Business name, address, or intersection visible in the image (e.g. "Joe's Pizza, 7 Carmine St")
+        location_name: Business name, address, or intersection visible in the camera/image (e.g. "Joe's Pizza, 7 Carmine St"). Use whatever you can read from signs, awnings, or street corners in the video frame.
         question_topic: The type of question. Must be one of: food_safety, housing, safety, construction, transit, general
 
     Returns:
@@ -350,6 +376,11 @@ class GeminiSession:
         self._run_task: Optional[asyncio.Task] = None
         self._runner = None
         self._root_agent = None
+        # Voice pipeline diagnostics
+        self._tool_called_this_turn = False
+        self._last_user_transcript = ""
+        self._audio_frames_sent = 0
+        self._video_frames_sent = 0
 
     async def start(self):
         """Build agents and initialize the ADK runner."""
@@ -462,6 +493,7 @@ class GeminiSession:
                     event_info.append(f'text:{p.text[:60]}')
                 if hasattr(p, 'function_call') and p.function_call:
                     event_info.append(f'fn_call:{p.function_call.name}')
+                    self._tool_called_this_turn = True
                 if hasattr(p, 'function_response') and p.function_response:
                     event_info.append(f'fn_resp:{p.function_response.name}')
         if event.actions:
@@ -470,6 +502,7 @@ class GeminiSession:
             event_info.append('turn_complete')
         if event.input_transcription:
             event_info.append(f'in_transcript:{event.input_transcription[:40]}')
+            self._last_user_transcript = event.input_transcription
         if event.output_transcription:
             event_info.append(f'out_transcript:{event.output_transcription[:40]}')
         if event_info and 'audio' not in event_info:
@@ -556,6 +589,21 @@ class GeminiSession:
 
         # ── Turn complete ────────────────────────────────────────────────
         if event.turn_complete:
+            # Diagnostic: warn if a turn completed without calling investigate_location
+            if self._last_user_transcript and not self._tool_called_this_turn:
+                print(
+                    f"[GeminiSession {self.session_id}] WARNING: turn completed WITHOUT tool call. "
+                    f"User said: '{self._last_user_transcript[:80]}' | "
+                    f"Audio frames sent: {self._audio_frames_sent}, Video frames sent: {self._video_frames_sent}"
+                )
+            elif self._tool_called_this_turn:
+                print(
+                    f"[GeminiSession {self.session_id}] Turn completed WITH tool call. "
+                    f"User said: '{self._last_user_transcript[:80]}'"
+                )
+            # Reset per-turn tracking
+            self._tool_called_this_turn = False
+            self._last_user_transcript = ""
             await self.dashboard_send({"type": "agent_state", "state": "idle"})
 
         # ── Agent transfer (sub-agent delegation) ────────────────────────
@@ -575,6 +623,9 @@ class GeminiSession:
             self._live_queue.send_realtime(
                 types.Blob(data=pcm_bytes, mime_type="audio/pcm;rate=16000")
             )
+            self._audio_frames_sent += 1
+            if self._audio_frames_sent % 50 == 1:
+                print(f"[GeminiSession {self.session_id}] audio frame #{self._audio_frames_sent} ({len(pcm_bytes)} bytes)")
         await self.dashboard_send({"type": "agent_state", "state": "listening"})
 
     async def send_video_frame(self, data: str):
@@ -585,7 +636,8 @@ class GeminiSession:
             self._live_queue.send_realtime(
                 types.Blob(data=jpeg_bytes, mime_type="image/jpeg")
             )
-        print(f"[GeminiSession {self.session_id}] video frame queued ({len(data)} chars)")
+            self._video_frames_sent += 1
+        print(f"[GeminiSession {self.session_id}] video frame #{self._video_frames_sent} queued ({len(data)} chars)")
 
     async def send_text(self, text: str):
         """Send a text query into the live session."""

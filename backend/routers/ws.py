@@ -188,6 +188,7 @@ async def remote_ws(websocket: WebSocket, session_id: str = None):
                 await session.send_video_frame(msg["data"])
 
             elif msg_type == "user_start_speaking":
+                logger.info("User started speaking: session %s", session_id)
                 dashboard = _dashboards.get(session_id)
                 if dashboard:
                     try:
@@ -196,6 +197,7 @@ async def remote_ws(websocket: WebSocket, session_id: str = None):
                         pass
 
             elif msg_type == "user_stop_speaking":
+                logger.info("User stopped speaking: session %s", session_id)
                 dashboard = _dashboards.get(session_id)
                 if dashboard:
                     try:
