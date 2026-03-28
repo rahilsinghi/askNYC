@@ -118,3 +118,36 @@ class SessionState(BaseModel):
     anomaly_found: bool = False
     started_at: datetime = datetime.now()
     ended_at: Optional[datetime] = None
+
+
+# ─── Recommend pipeline models ─────────────────────────────────────────────
+
+class RecommendRequest(BaseModel):
+    query: str
+
+
+class QueryPlan(BaseModel):
+    location: str
+    intent: str  # food, housing, safety, construction, transit, general
+    search_terms: list[str] = []
+    datasets: list[str] = []
+
+
+class ScoreBreakdown(BaseModel):
+    hygiene: Optional[int] = None
+    complaints: Optional[int] = None
+    safety: Optional[int] = None
+    housing: Optional[int] = None
+    transit: Optional[int] = None
+    construction: Optional[int] = None
+
+
+class RecommendationCard(BaseModel):
+    name: str
+    address: str
+    score: int  # 0-100
+    score_breakdown: dict[str, int] = {}
+    badges: list[dict[str, str]] = []
+    reasoning: list[str] = []
+    lat: Optional[float] = None
+    lng: Optional[float] = None

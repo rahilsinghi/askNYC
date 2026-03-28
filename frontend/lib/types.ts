@@ -106,3 +106,33 @@ export const BADGE_STYLES: Record<DataCategory, { bg: string; text: string }> = 
   evictions:  { bg: 'rgba(168,85,247,0.12)',  text: '#a855f7' },
   transit:    { bg: 'rgba(6,182,212,0.12)',   text: '#06b6d4' },
 }
+
+// ─── Recommend Pipeline Types ───────────────────────────────────────────────
+
+export type RecommendPhase = 'idle' | 'planning' | 'agents' | 'synthesizing' | 'complete'
+
+export interface AgentDef {
+  agent_id: string
+  label: string
+  icon: string
+}
+
+export interface AgentStatus {
+  agent_id: string
+  label: string
+  icon: string
+  status: 'pending' | 'running' | 'complete' | 'error'
+  summary?: string
+  data?: Record<string, unknown>
+}
+
+export interface Recommendation {
+  name: string
+  address: string
+  score: number
+  score_breakdown: Record<string, number>
+  badges: { category: string; label: string }[]
+  reasoning: string[]
+  lat?: number
+  lng?: number
+}

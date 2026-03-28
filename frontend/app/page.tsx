@@ -188,8 +188,18 @@ export default function SplashPage() {
             >
               <SearchInput onSendQuery={handleSearch} />
 
-              {/* Dashboard link */}
-              <div className="flex justify-center mt-5">
+              {/* Navigation links */}
+              <div className="flex justify-center gap-3 mt-5">
+                <button
+                  onClick={() => router.push('/ask')}
+                  className="group relative px-6 py-2.5 rounded-full border border-green/20 bg-green/5 backdrop-blur-sm text-green/70 hover:text-green hover:border-green/40 hover:bg-green/10 transition-all duration-300 text-xs font-mono tracking-[0.15em] uppercase"
+                >
+                  <span className="relative z-10 flex items-center gap-2">
+                    Ask NYC
+                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                  </span>
+                  <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-[0_0_25px_rgba(132,204,22,0.15)]" />
+                </button>
                 <button
                   onClick={() => router.push('/dashboard')}
                   className="group relative px-6 py-2.5 rounded-full border border-cyan-400/20 bg-cyan-400/5 backdrop-blur-sm text-cyan-400/70 hover:text-cyan-300 hover:border-cyan-400/40 hover:bg-cyan-400/10 transition-all duration-300 text-xs font-mono tracking-[0.15em] uppercase"
