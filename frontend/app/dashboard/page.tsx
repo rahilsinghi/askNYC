@@ -7,6 +7,7 @@ import Sidebar from '@/components/dashboard/Sidebar'
 import CameraFeed from '@/components/dashboard/CameraFeed'
 import MiniMap from '@/components/dashboard/MiniMap'
 import IntelligenceBrief from '@/components/dashboard/IntelligenceBrief'
+import SearchInput from '@/components/dashboard/SearchInput'
 import SettingsPanel from '@/components/SettingsPanel'
 import { useDashboardWs } from '@/hooks/useWebSocket'
 import { useDemoMode } from '@/hooks/useDemoMode'
@@ -40,17 +41,16 @@ function DashboardContent() {
 
   // Use WS data when backend is connected, demo data when not
   const isLive = ws.isConnected
-  const agentState   = isLive ? ws.agentState   : demo.agentState
-  const cards        = isLive ? ws.cards        : demo.cards
-  const toolCalls    = isLive ? ws.toolCalls    : demo.toolCalls
-  const transcript   = isLive ? ws.transcript   : demo.transcript
+  const agentState = isLive ? ws.agentState : demo.agentState
+  const cards = isLive ? ws.cards : demo.cards
+  const toolCalls = isLive ? ws.toolCalls : demo.toolCalls
+  const transcript = isLive ? ws.transcript : demo.transcript
 
   const handleSendQuery = useCallback((text: string) => {
     ws.sendQuery(displayImage, text)
   }, [ws, displayImage])
 
-  // ─── Query param handling ────────────────────────────────────────────────────
-
+  // ─── Query param handling ───────────────────────────────────────────────────
   useEffect(() => {
     const q = searchParams.get('q')
     const location = searchParams.get('location')
@@ -59,13 +59,10 @@ function DashboardContent() {
 
     if (!q && !demoParam && !voice) return
 
-    // Voice mode placeholder
     if (voice === 'true') {
       setVoiceMode(true)
-      console.log('Voice mode activated')
     }
 
-    // Auto-submit text query after short delay for WS to connect
     if (q) {
       const queryText = location ? `${location}: ${q}` : q
       const timer = setTimeout(() => {
@@ -75,7 +72,6 @@ function DashboardContent() {
       return () => clearTimeout(timer)
     }
 
-    // Auto-trigger demo mode
     if (demoParam) {
       const validScenarios: DemoScenario[] = ['restaurant', 'building', 'construction']
       const timers: ReturnType<typeof setTimeout>[] = []
@@ -92,83 +88,108 @@ function DashboardContent() {
       return () => timers.forEach(clearTimeout)
     }
 
-    // Clean URL if only voice param was set
     router.replace('/dashboard', { scroll: false })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [searchParams, router, handleSendQuery, demo])
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+    <div className="relative h-screen w-screen overflow-hidden bg-bg font-mono">
 
-      <div className="flex-1 flex flex-col border-r border-border min-w-0">
-
-        {/* Top status bar */}
-        <div className="h-8 border-b border-border flex items-center px-4 gap-3 bg-bg2 flex-shrink-0">
-          <div className={`w-1.5 h-1.5 rounded-full ${ws.isConnected ? 'bg-green status-pulse' : 'bg-red red-pulse'}`}/>
-          <span className="font-mono text-[8px] tracking-[0.15em] text-muted">
-            {ws.isConnected ? 'BACKEND CONNECTED' : 'DEMO MODE — BACKEND OFFLINE'}
-          </span>
-          {ws.sessionId && (
-            <>
-              <div className="w-px h-3 bg-border"/>
-              <span className="font-mono text-[8px] tracking-[0.1em] text-dim">
-                SESSION {ws.sessionId}
-              </span>
-            </>
-          )}
-          {voiceMode && (
-            <>
-              <div className="w-px h-3 bg-border"/>
-              <span className="font-mono text-[8px] tracking-[0.1em] text-green">
-                VOICE MODE
-              </span>
-            </>
-          )}
-          {/* Demo trigger buttons — only show when backend offline */}
-          {!isLive && (
-            <div className="ml-auto flex gap-2">
-              {(['restaurant', 'building', 'construction'] as const).map(s => (
-                <button
-                  key={s}
-                  onClick={() => demo.runDemo(s)}
-                  className="font-mono text-[8px] tracking-[0.08em] px-2 py-0.5 rounded-[3px] border border-border hover:border-border2 text-muted hover:text-[#f4f4f5] transition-colors"
-                >
-                  DEMO: {s.toUpperCase()}
-                </button>
-              ))}
-              <button
-                onClick={demo.reset}
-                className="font-mono text-[8px] tracking-[0.08em] px-2 py-0.5 rounded-[3px] border border-border text-dim hover:text-muted transition-colors"
-              >
-                RESET
-              </button>
-            </div>
-          )}
-          <button
-            onClick={() => setShowSettings(true)}
-            className={`${isLive ? 'ml-auto' : ''} w-5 h-5 flex items-center justify-center rounded hover:bg-silver-mist/10 transition-colors`}
-          >
-            <Settings className="w-3 h-3 text-silver-mist/40 hover:text-silver-mist/70" />
-          </button>
-        </div>
-
-        {/* Camera feed */}
-        <CameraFeed
-          detection={ws.detection}
-          remoteConnected={ws.remoteConnected}
-          uploadedImage={displayImage}
-          onImageUpload={setUploadedImage}
-          onImageClear={() => setUploadedImage(null)}
-          mapCenter={ws.mapCenter}
-        />
-
-        {/* Mini map */}
+      {/* ─── Level 0: Cinematic Map Background ──────────────────────────────── */}
+      <div className="fixed inset-0 z-0 pointer-events-auto">
         <MiniMap
           pins={ws.pins}
           centerLat={ws.mapCenter?.lat}
           centerLng={ws.mapCenter?.lng}
         />
+      </div>
+
+      {/* ─── Level 1: UI Overlay Layer ───────────────────────────────────────── */}
+      <div className="relative z-10 flex h-full pointer-events-none">
+
+        {/* Left Rail: Sidebar */}
+        <div className="pointer-events-auto flex-shrink-0">
+          <Sidebar />
+        </div>
+
+        {/* Center Canvas: Status + Alerts + Camera + Ask Bar */}
+        <div className="flex-1 flex flex-col items-center justify-between py-6 px-10 relative">
+
+          {/* Top: Status Bar */}
+          <div className="w-full flex justify-between items-start pointer-events-auto">
+            <div className="glass px-4 py-1.5 rounded-full flex items-center gap-3 border-white/5">
+              <div className={`w-1.5 h-1.5 rounded-full ${ws.isConnected ? 'bg-health status-pulse shadow-[0_0_8px_#84cc16]' : 'bg-safety red-pulse shadow-[0_0_8px_#ef4444]'}`} />
+              <span className="text-[10px] tracking-[0.2em] font-medium text-white/50 uppercase">
+                {ws.isConnected ? 'SYSTEM_ONLINE' : 'OFFLINE_SYNC'}
+              </span>
+              {ws.sessionId && (
+                <>
+                  <div className="w-px h-3 bg-white/10 mx-1" />
+                  <span className="text-[9px] tracking-[0.1em] text-white/30 truncate max-w-[120px]">
+                    SESSION_{ws.sessionId.substring(0, 8)}
+                  </span>
+                </>
+              )}
+            </div>
+
+            <button
+              onClick={() => setShowSettings(true)}
+              className="glass w-8 h-8 flex items-center justify-center rounded-full border-white/5 hover:border-cyan-400/50 hover:bg-cyan-400/10 transition-all group"
+            >
+              <Settings className="w-4 h-4 text-white/40 group-hover:text-cyan-400" />
+            </button>
+          </div>
+
+          {/* Middle: Camera Feedback (Floating Pill) */}
+          <div className="pointer-events-auto mt-12 bg-slate-900/40 backdrop-blur-md rounded-2xl border border-white/5 shadow-2xl overflow-hidden">
+            <CameraFeed
+              detection={ws.detection}
+              remoteConnected={ws.remoteConnected}
+              uploadedImage={displayImage}
+              onImageUpload={setUploadedImage}
+              onImageClear={() => setUploadedImage(null)}
+              mapCenter={ws.mapCenter}
+            />
+          </div>
+
+          {/* Bottom: Asking Experience */}
+          <div className="w-full flex flex-col items-center gap-4 pointer-events-auto">
+            {!isLive && (
+              <div className="flex gap-2">
+                {(['restaurant', 'building', 'construction'] as const).map(s => (
+                  <button
+                    key={s}
+                    onClick={() => demo.runDemo(s)}
+                    className="text-[9px] tracking-wider px-2.5 py-1 rounded bg-slate-900/40 border border-white/5 hover:border-white/20 text-white/40 hover:text-white transition-all uppercase"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <SearchInput
+              onSendQuery={handleSendQuery}
+              disabled={agentState !== 'idle'}
+              hasImage={!!uploadedImage}
+            />
+          </div>
+        </div>
+
+        {/* Right Panel: Intelligence Briefing */}
+        <div className="pointer-events-auto flex-shrink-0">
+          <IntelligenceBrief
+            agentState={agentState}
+            cards={cards}
+            toolCalls={toolCalls}
+            transcript={transcript}
+            sessionId={ws.sessionId}
+            remoteUrl={ws.remoteUrl}
+            remoteConnected={ws.remoteConnected}
+            onSendQuery={handleSendQuery}
+            hasImage={!!uploadedImage}
+            sessionSummary={ws.sessionSummary}
+          />
+        </div>
       </div>
 
       {/* Settings panel */}
@@ -180,20 +201,6 @@ function DashboardContent() {
         onMuteChange={settings.setMuted}
         volume={settings.volume}
         muted={settings.muted}
-      />
-
-      {/* Right panel */}
-      <IntelligenceBrief
-        agentState={agentState}
-        cards={cards}
-        toolCalls={toolCalls}
-        transcript={transcript}
-        sessionId={ws.sessionId}
-        remoteUrl={ws.remoteUrl}
-        remoteConnected={ws.remoteConnected}
-        onSendQuery={isLive ? handleSendQuery : undefined}
-        hasImage={!!displayImage}
-        sessionSummary={ws.sessionSummary}
       />
     </div>
   )

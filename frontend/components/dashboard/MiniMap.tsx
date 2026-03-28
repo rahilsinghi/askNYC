@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MapPin, SOURCE_COLORS } from '@/lib/types'
 
 interface MiniMapProps {
@@ -11,111 +11,196 @@ interface MiniMapProps {
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
 
-// NYC default center (City Hall area)
-const DEFAULT_CENTER: [number, number] = [-73.9857, 40.7484]
-const DEFAULT_ZOOM = 13.5
+const DEFAULT_CENTER: [number, number] = [-73.99, 40.73]
+const DEFAULT_ZOOM = 14
+const DEFAULT_PITCH = 62
+const DEFAULT_BEARING = -15
+
+const LANDMARK_REGISTRY = [
+  { id: 'esb', title: 'Empire State Building', subtitle: 'Iconic Landmark', rating: '4.8', lat: 40.7484, lng: -73.9857, color: 'gold' as const },
+  { id: 'wtc', title: 'One World Trade Center', subtitle: 'Hero Skyscraper', rating: '4.9', lat: 40.7127, lng: -74.0134, color: 'cyan' as const },
+]
 
 const LEGEND = [
+  { label: 'LANDMARKS', color: '#fbbf24' },
   { label: 'COMPLAINTS', color: '#ef4444' },
-  { label: 'PERMITS',    color: '#3b82f6' },
-  { label: 'INSPECTIONS',color: '#84cc16' },
+  { label: 'PERMITS', color: '#3b82f6' },
+  { label: 'INSPECTIONS', color: '#84cc16' },
   { label: 'VIOLATIONS', color: '#f59e0b' },
 ]
 
 export default function MiniMap({ pins, centerLat, centerLng }: MiniMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<mapboxgl.Map | null>(null)
-  const markersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
+  const mapRef = useRef<unknown>(null)
+  const markersRef = useRef<Map<string, unknown>>(new Map())
+  const landmarkRootsRef = useRef<Map<string, { unmount: () => void }>>(new Map())
   const [mapLoaded, setMapLoaded] = useState(false)
 
   // Initialize map
   useEffect(() => {
     if (!MAPBOX_TOKEN || !mapContainer.current || mapRef.current) return
 
-    let map: mapboxgl.Map
+    let destroyed = false
 
     const initMap = async () => {
       const mapboxgl = (await import('mapbox-gl')).default
+      await import('mapbox-gl/dist/mapbox-gl.css')
       mapboxgl.accessToken = MAPBOX_TOKEN
 
-      map = new mapboxgl.Map({
-        container: mapContainer.current!,
+      if (destroyed || !mapContainer.current) return
+
+      const map = new mapboxgl.Map({
+        container: mapContainer.current,
         style: 'mapbox://styles/mapbox/dark-v11',
         center: centerLng && centerLat ? [centerLng, centerLat] : DEFAULT_CENTER,
         zoom: DEFAULT_ZOOM,
-        pitch: 0,
+        pitch: DEFAULT_PITCH,
+        bearing: DEFAULT_BEARING,
+        antialias: true,
         attributionControl: false,
-        logoPosition: 'bottom-right',
       })
 
-      // Strip chrome — keep it minimal
-      map.getCanvas().style.cursor = 'default'
+      map.on('style.load', () => {
+        if (destroyed) return
+
+        // 3D buildings
+        if (!map.getLayer('3d-buildings')) {
+          map.addLayer({
+            id: '3d-buildings',
+            source: 'composite',
+            'source-layer': 'building',
+            filter: ['==', 'extrude', 'true'],
+            type: 'fill-extrusion',
+            minzoom: 13,
+            paint: {
+              'fill-extrusion-color': '#0D1B2A',
+              'fill-extrusion-height': ['get', 'height'],
+              'fill-extrusion-base': ['get', 'min_height'],
+              'fill-extrusion-opacity': 0.8,
+              'fill-extrusion-vertical-gradient': true,
+            },
+          })
+        }
+
+        map.setFog({
+          range: [0.5, 7],
+          color: '#07111D',
+          'high-color': '#0B1D31',
+          'space-color': '#000005',
+          'star-intensity': 0.9,
+        })
+      })
 
       map.on('load', () => {
+        if (destroyed) return
         mapRef.current = map
         setMapLoaded(true)
+
+        // Add landmark markers
+        addLandmarkMarkers(map, mapboxgl)
+      })
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const addLandmarkMarkers = async (map: any, mapboxgl: any) => {
+      const { createRoot } = await import('react-dom/client')
+      const { default: MapEvidenceCard } = await import('./MapEvidenceCard')
+
+      LANDMARK_REGISTRY.forEach(landmark => {
+        if (markersRef.current.has(landmark.id)) return
+
+        const el = document.createElement('div')
+        const root = createRoot(el)
+        root.render(
+          <MapEvidenceCard
+            id={landmark.id}
+            title={landmark.title}
+            subtitle={landmark.subtitle}
+            rating={landmark.rating}
+            status="active"
+            position={{ x: 0, y: 0 }}
+            color={landmark.color}
+          />
+        )
+
+        const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom-left', offset: [20, -20] })
+          .setLngLat([landmark.lng, landmark.lat])
+          .addTo(map)
+        markersRef.current.set(landmark.id, marker)
+        landmarkRootsRef.current.set(landmark.id, root)
       })
     }
 
     initMap()
 
     return () => {
-      markersRef.current.forEach(m => m.remove())
+      destroyed = true
+      // Clean up React roots
+      landmarkRootsRef.current.forEach(root => root.unmount())
+      landmarkRootsRef.current.clear()
+      // Clean up markers
+      markersRef.current.forEach(marker => (marker as { remove: () => void }).remove())
       markersRef.current.clear()
-      map?.remove()
-      mapRef.current = null
+      // Clean up map
+      if (mapRef.current) {
+        (mapRef.current as { remove: () => void }).remove()
+        mapRef.current = null
+      }
     }
   }, [centerLat, centerLng])
 
-  // Sync pins to markers
+  // Sync backend pins to markers
   useEffect(() => {
     if (!mapRef.current || !mapLoaded) return
-    const map = mapRef.current
-    const existing = markersRef.current
-    const currentIds = new Set(pins.map(p => p.id))
 
-    // Remove markers no longer in pins
-    existing.forEach((marker, id) => {
-      if (!currentIds.has(id)) {
-        marker.remove()
-        existing.delete(id)
-      }
-    })
+    const initPins = async () => {
+      const mapboxgl = (await import('mapbox-gl')).default
+      const map = mapRef.current as InstanceType<typeof mapboxgl.Map>
+      const existing = markersRef.current
+      const currentIds = new Set(pins.map(p => p.id))
 
-    // Add new pins
-    pins.forEach(pin => {
-      if (existing.has(pin.id)) return
+      // Remove markers no longer in pins (skip landmarks)
+      existing.forEach((marker, id) => {
+        if (!currentIds.has(id) && !LANDMARK_REGISTRY.some(l => l.id === id)) {
+          (marker as { remove: () => void }).remove()
+          existing.delete(id)
+        }
+      })
 
-      const color = SOURCE_COLORS[pin.source] || '#84cc16'
-      const el = createMarkerEl(color)
+      // Add new pins
+      pins.forEach(pin => {
+        if (existing.has(pin.id)) return
 
-      const addMarker = async () => {
-        const mapboxgl = (await import('mapbox-gl')).default
+        const color = SOURCE_COLORS[pin.source] || '#84cc16'
+        const el = createMarkerEl(color)
+
         const marker = new mapboxgl.Marker({ element: el })
           .setLngLat([pin.lng, pin.lat])
           .addTo(map)
         existing.set(pin.id, marker)
-      }
-
-      addMarker()
-    })
-
-    // Fly to most recent pin
-    if (pins.length > 0) {
-      const latest = pins[pins.length - 1]
-      map.flyTo({
-        center: [latest.lng, latest.lat],
-        zoom: Math.max(map.getZoom(), 14),
-        duration: 1200,
-        essential: true,
       })
+
+      // Fly to most recent pin
+      if (pins.length > 0) {
+        const latest = pins[pins.length - 1]
+        map.flyTo({
+          center: [latest.lng, latest.lat],
+          zoom: Math.max(map.getZoom(), 14),
+          duration: 1200,
+          essential: true,
+        })
+      }
     }
+
+    initPins()
   }, [pins, mapLoaded])
 
   // Fly to explicit center when provided
   useEffect(() => {
     if (!mapRef.current || !mapLoaded || !centerLat || !centerLng) return
-    mapRef.current.flyTo({
+
+    const map = mapRef.current as { flyTo: (opts: Record<string, unknown>) => void }
+    map.flyTo({
       center: [centerLng, centerLat],
       zoom: 14.5,
       duration: 1500,
@@ -123,30 +208,24 @@ export default function MiniMap({ pins, centerLat, centerLng }: MiniMapProps) {
     })
   }, [centerLat, centerLng, mapLoaded])
 
-  // No token — fall back to CSS map
+  // No token — CSS fallback
   if (!MAPBOX_TOKEN) {
     return <CssFallbackMap pins={pins} />
   }
 
   return (
-    <div className="h-[220px] relative overflow-hidden" style={{ background: '#09090c' }}>
-      <div ref={mapContainer} className="absolute inset-0" />
-
-      {/* Scan overlay — subtle grid on top of map */}
-      <div className="absolute inset-0 pointer-events-none" style={{
-        backgroundImage: `
-          linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)
-        `,
-        backgroundSize: '30px 30px',
-      }}/>
+    <div className="absolute inset-0 w-full h-full min-h-screen bg-[#07111D] z-0">
+      <div
+        ref={mapContainer}
+        style={{ width: '100%', height: '100vh', position: 'absolute', top: 0, left: 0 }}
+      />
 
       {/* Legend */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-4 z-10">
+      <div className="absolute bottom-6 left-6 z-20 flex flex-col gap-1.5 pointer-events-none">
         {LEGEND.map(({ label, color }) => (
-          <div key={label} className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full" style={{ background: color }}/>
-            <span className="font-mono text-[8px] tracking-[0.1em] text-muted">{label}</span>
+          <div key={label} className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
+            <span className="text-[9px] tracking-[0.2em] font-bold text-white/40 uppercase font-mono">{label}</span>
           </div>
         ))}
       </div>
@@ -154,12 +233,10 @@ export default function MiniMap({ pins, centerLat, centerLng }: MiniMapProps) {
   )
 }
 
-/** Create a glowing dot marker element */
 function createMarkerEl(color: string): HTMLDivElement {
   const wrapper = document.createElement('div')
   wrapper.style.cssText = 'position:relative;width:16px;height:16px;'
 
-  // Inner dot
   const dot = document.createElement('div')
   dot.style.cssText = `
     position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
@@ -168,7 +245,6 @@ function createMarkerEl(color: string): HTMLDivElement {
   `
   wrapper.appendChild(dot)
 
-  // Pulse ring
   const ring = document.createElement('div')
   ring.style.cssText = `
     position:absolute; top:50%; left:50%;
@@ -178,7 +254,6 @@ function createMarkerEl(color: string): HTMLDivElement {
   `
   wrapper.appendChild(ring)
 
-  // Entry animation — scale in
   wrapper.style.transform = 'scale(0)'
   wrapper.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
   requestAnimationFrame(() => {
@@ -188,14 +263,11 @@ function createMarkerEl(color: string): HTMLDivElement {
   return wrapper
 }
 
-
 // ─── CSS Fallback (no Mapbox token) ──────────────────────────────────────────
 
 function CssFallbackMap({ pins }: { pins: MapPin[] }) {
   return (
-    <div className="h-[220px] relative overflow-hidden" style={{ background: '#09090c' }}>
-
-      {/* Grid */}
+    <div className="absolute inset-0 w-full h-full min-h-screen bg-[#07111D] z-0">
       <div className="absolute inset-0 pointer-events-none" style={{
         backgroundImage: `
           linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
@@ -204,11 +276,9 @@ function CssFallbackMap({ pins }: { pins: MapPin[] }) {
         backgroundSize: '30px 30px',
       }}/>
 
-      {/* Crosshairs */}
       <div className="absolute inset-y-0 left-1/2 w-px bg-white/[0.03] pointer-events-none"/>
       <div className="absolute inset-x-0 top-1/2 h-px bg-white/[0.03] pointer-events-none"/>
 
-      {/* Radius rings */}
       {[120, 60].map((size, i) => (
         <div
           key={size}
@@ -222,31 +292,10 @@ function CssFallbackMap({ pins }: { pins: MapPin[] }) {
         />
       ))}
 
-      {/* Center point */}
       <div className="absolute" style={{ top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 10 }}>
         <div className="w-2.5 h-2.5 rounded-full bg-green" style={{ boxShadow: '0 0 8px rgba(132,204,22,0.6)' }}/>
-        <div
-          className="absolute rounded-full border"
-          style={{
-            width: 18, height: 18,
-            top: '50%', left: '50%',
-            borderColor: 'rgba(132,204,22,0.4)',
-            animation: 'ringOut 2s ease-out infinite',
-          }}
-        />
       </div>
 
-      {/* Static demo pins */}
-      {pins.length === 0 && (
-        <>
-          <DemoDot top="38%" left="58%" color="#84cc16" size={10} delay="0s"/>
-          <DemoDot top="60%" left="41%" color="#f59e0b" size={8} delay="0.7s"/>
-          <DemoDot top="72%" left="34%" color="#3b82f6" size={8} delay="1.2s"/>
-          <DemoDot top="78%" left="55%" color="#ef4444" size={7} delay="0.4s"/>
-        </>
-      )}
-
-      {/* Real pins */}
       {pins.map((pin) => {
         const color = SOURCE_COLORS[pin.source] || '#84cc16'
         return (
@@ -266,37 +315,19 @@ function CssFallbackMap({ pins }: { pins: MapPin[] }) {
         )
       })}
 
-      {/* Legend */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-4">
-        {LEGEND.map(({ label, color }) => (
-          <div key={label} className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full" style={{ background: color }}/>
-            <span className="font-mono text-[8px] tracking-[0.1em] text-muted">{label}</span>
+      <div className="absolute bottom-6 left-6 z-20 flex flex-col gap-1.5 pointer-events-none">
+        {[
+          { label: 'COMPLAINTS', color: '#ef4444' },
+          { label: 'PERMITS', color: '#3b82f6' },
+          { label: 'INSPECTIONS', color: '#84cc16' },
+          { label: 'VIOLATIONS', color: '#f59e0b' },
+        ].map(({ label, color }) => (
+          <div key={label} className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
+            <span className="text-[9px] tracking-[0.2em] font-bold text-white/40 uppercase font-mono">{label}</span>
           </div>
         ))}
       </div>
-    </div>
-  )
-}
-
-function DemoDot({ top, left, color, size, delay }: {
-  top: string; left: string; color: string; size: number; delay: string
-}) {
-  return (
-    <div className="absolute" style={{ top, left, transform: 'translate(-50%,-50%)' }}>
-      <div
-        className="rounded-full"
-        style={{ width: size, height: size, background: color, boxShadow: `0 0 ${size - 2}px ${color}80` }}
-      />
-      <div
-        className="absolute rounded-full border"
-        style={{
-          width: size + 8, height: size + 8,
-          top: '50%', left: '50%',
-          borderColor: `${color}60`,
-          animation: `ringOut 2s ease-out ${delay} infinite`,
-        }}
-      />
     </div>
   )
 }

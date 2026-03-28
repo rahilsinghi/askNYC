@@ -1,0 +1,74 @@
+[
+    {
+        "id": "empire_state_building",
+        "name": "Empire State Building",
+        "coords": {
+            "lat": 40.7484,
+            "lng": -73.9857
+        },
+        "category": "iconic_landmark",
+        "visual_preset": "GOLD_HERO",
+        "glow_config": {
+            "color": "#F2B35B",
+            "beamHeight": 800,
+            "pulseFreq": 1.2,
+            "shellRadius": 45,
+            "emissiveIntensity": 2.5
+        },
+        "priority": 10
+    },
+    {
+        "id": "wtc_one",
+        "name": "One World Trade Center",
+        "coords": {
+            "lat": 40.7127,
+            "lng": -74.0134
+        },
+        "category": "iconic_landmark",
+        "visual_preset": "CYAN_HERO",
+        "glow_config": {
+            "color": "#41E4F4",
+            "beamHeight": 1000,
+            "pulseFreq": 0.8,
+            "shellRadius": 50,
+            "emissiveIntensity": 3.0
+        },
+        "priority": 10
+    },
+    {
+        "id": "statue_of_liberty",
+        "name": "Statue of Liberty",
+        "coords": {
+            "lat": 40.6892,
+            "lng": -74.0445
+        },
+        "category": "iconic_landmark",
+        "visual_preset": "MINT_GLOW",
+        "glow_config": {
+            "color": "#D1FAE5",
+            "beamHeight": 400,
+            "pulseFreq": 0.5,
+            "shellRadius": 30,
+            "emissiveIntensity": 1.5
+        },
+        "priority": 9
+    },
+    {
+        "id": "blue_note",
+        "name": "Blue Note Jazz Club",
+        "coords": {
+            "lat": 40.7301,
+            "lng": -74.0006
+        },
+        "category": "notable_venue",
+        "visual_preset": "ELECTRIC_BLUE",
+        "glow_config": {
+            "color": "#3B82F6",
+            "beamHeight": 100,
+            "pulseFreq": 2.0,
+            "shellRadius": 15,
+            "emissiveIntensity": 1.2
+        },
+        "priority": 8
+    }
+]

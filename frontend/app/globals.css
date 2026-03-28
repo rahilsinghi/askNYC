@@ -1,41 +1,49 @@
 @import "tailwindcss";
 
 @theme {
+  --color-bg: #0c0c0f;
+  --color-health: #84cc16;
+  --color-permits: #3b82f6;
+  --color-complaints: #f59e0b;
+  --color-violations: #f59e0b;
+  --color-nypd: #ef4444;
+  --color-safety: #ef4444;
+  --color-evictions: #a855f7;
+  --color-transit: #06b6d4;
+
   --color-midnight: #07111D;
   --color-deep-navy: #0B1D31;
   --color-road-glow: #294766;
   --color-water-tint: #071827;
   --color-park-green: #102A24;
   --color-silver-mist: #F4F7FB;
-  --color-electric-cyan: #41E4F4;
+
   --color-cyan-glow: #15BFD2;
-  --color-warm-amber: #F2B35B;
-  --color-amber-glow: #C7852D;
+  --color-electric-cyan: #41E4F4;
+
+  --font-syne: var(--font-syne);
+  --font-mono: var(--font-dm-mono);
 }
 
 @layer base {
   body {
-    @apply bg-midnight text-silver-mist font-sans antialiased;
+    @apply bg-bg text-white/90 font-mono antialiased;
     overflow: hidden;
   }
 }
 
 @layer components {
   .glass {
-    background: rgba(26, 39, 56, 0.72);
-    backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(175, 210, 255, 0.12);
-    box-shadow:
-      0 30px 60px rgba(0, 0, 0, 0.5),
-      inset 0 0 20px rgba(175, 210, 255, 0.05);
+    @apply bg-slate-950/40 backdrop-blur-2xl border border-white/10;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.82);
+  }
+
+  .glass-card {
+    @apply bg-slate-950/50 backdrop-blur-xl border border-white/5 rounded-xl;
   }
 
   .glow-cyan {
-    box-shadow: 0 0 30px rgba(21, 191, 210, 0.4);
-  }
-
-  .glow-amber {
-    box-shadow: 0 0 40px rgba(199, 133, 45, 0.5);
+    box-shadow: 0 0 30px rgba(21, 191, 210, 0.3);
   }
 }
 
@@ -43,30 +51,45 @@
   .text-glow {
     text-shadow: 0 0 10px currentColor;
   }
+
+  .city-grid {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
 }
 
-@keyframes building-pulse {
+@keyframes ringOut {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(2.5);
+    opacity: 0;
+  }
+}
+
+.status-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
 
   0%,
   100% {
-    opacity: 0.8;
-    filter: brightness(1);
+    opacity: 1;
   }
 
   50% {
-    opacity: 1;
-    filter: brightness(1.3);
+    opacity: .4;
   }
 }
 
-.glass-pill {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.text-editorial {
-  font-family: var(--font-playfair-display), serif;
+.red-pulse {
+  animation: redPulse 2s infinite;
 }
 
 /* Mapbox Overrides */
@@ -86,21 +109,26 @@
 }
 
 @keyframes pulse-cyan {
-  0% {
+  0%, 100% {
     box-shadow: 0 0 0 0 rgba(64, 224, 208, 0.4);
   }
-
-  70% {
-    box-shadow: 0 0 0 10px rgba(64, 224, 208, 0);
-  }
-
-  100% {
-    box-shadow: 0 0 0 0 rgba(64, 224, 208, 0);
+  50% {
+    box-shadow: 0 0 0 8px rgba(64, 224, 208, 0);
   }
 }
 
-.animate-pulse-cyan {
-  animation: pulse-cyan 2s infinite;
+@keyframes redPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+
+  70% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
 }
 
 @utility scrollbar-none {

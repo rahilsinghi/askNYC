@@ -121,7 +121,7 @@ export default function SplashPage() {
   const showDemoCards = sessionsLoaded && recentSessions.length === 0;
 
   return (
-    <main className="relative w-screen h-screen overflow-hidden bg-midnight">
+    <main className="relative w-screen h-screen overflow-hidden bg-midnight font-mono">
       {/* Boot animation */}
       <AnimatePresence mode="wait">
         {showBoot && <BootScreen onComplete={handleBootComplete} />}
@@ -145,9 +145,8 @@ export default function SplashPage() {
         animate={{ opacity: showBoot ? 0 : 1 }}
         transition={{ delay: 0.3 }}
         onClick={() => setShowSettings((s) => !s)}
-        className={`fixed top-6 right-6 z-50 w-10 h-10 rounded-full glass-pill flex items-center justify-center transition-colors ${
-          showSettings ? 'text-electric-cyan border-electric-cyan/40' : 'text-silver-mist/50 border-white/10 hover:text-silver-mist'
-        }`}
+        className={`fixed top-6 right-6 z-50 w-10 h-10 rounded-full glass flex items-center justify-center transition-colors ${showSettings ? 'text-cyan-400 border-cyan-400/40' : 'text-white/30 border-white/10 hover:text-white'
+          }`}
         aria-label="Settings"
       >
         <Settings className="w-5 h-5" />
@@ -169,13 +168,13 @@ export default function SplashPage() {
               transition={{ delay: 0.1, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
               className="flex flex-col items-center mb-10"
             >
-              <div className="w-14 h-14 rounded-2xl glass-pill flex items-center justify-center mb-6 border-electric-cyan/20">
-                <div className="w-7 h-7 rounded-lg bg-electric-cyan shadow-[0_0_30px_rgba(64,224,208,0.5)]" />
+              <div className="w-14 h-14 rounded-2xl glass flex items-center justify-center mb-6 border-cyan-400/20">
+                <div className="w-7 h-7 rounded-lg bg-cyan-400 shadow-[0_0_30px_rgba(34,211,238,0.5)]" />
               </div>
-              <h1 className="text-4xl sm:text-5xl font-medium tracking-[0.2em] uppercase text-silver-mist text-glow">
+              <h1 className="text-4xl sm:text-5xl font-black tracking-[0.2em] uppercase text-white italic">
                 ASK NYC
               </h1>
-              <p className="mt-3 text-[10px] font-mono tracking-[0.4em] text-silver-mist/40 uppercase">
+              <p className="mt-3 text-[10px] font-mono tracking-[0.4em] text-white/30 uppercase">
                 Voice + Camera Intelligence
               </p>
             </motion.div>
@@ -187,13 +186,13 @@ export default function SplashPage() {
               transition={{ delay: 0.3, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
               className="w-full max-w-2xl px-6 pointer-events-auto"
             >
-              <SearchInput onSubmit={handleSearch} />
+              <SearchInput onSendQuery={handleSearch} />
 
               {/* Dashboard link */}
               <div className="flex justify-center mt-4">
                 <button
                   onClick={() => router.push('/dashboard')}
-                  className="text-xs font-mono text-silver-mist/30 hover:text-electric-cyan/70 transition-colors tracking-wide"
+                  className="text-xs font-mono text-white/20 hover:text-cyan-400/70 transition-colors tracking-wide"
                 >
                   or go straight to dashboard &rarr;
                 </button>
@@ -211,29 +210,29 @@ export default function SplashPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {showDemoCards
                     ? DEMO_CARDS.map((card, i) => (
-                        <EvidenceCard
-                          key={card.demoKey}
-                          idText={card.idText}
-                          title={card.title}
-                          type={card.type}
-                          rating={card.rating}
-                          delay={i * 0.15}
-                          onExplore={() => handleExploreDemo(card.demoKey)}
-                        />
-                      ))
+                      <EvidenceCard
+                        key={card.demoKey}
+                        idText={card.idText}
+                        title={card.title}
+                        type={card.type}
+                        rating={card.rating}
+                        delay={i * 0.15}
+                        onExplore={() => handleExploreDemo(card.demoKey)}
+                      />
+                    ))
                     : recentSessions.map((session, i) => (
-                        <EvidenceCard
-                          key={session.session_id}
-                          idText={`S-${String(i + 1).padStart(2, '0')}`}
-                          title={session.location_name}
-                          type={
-                            (session.cards[0]?.category as CardType) || 'location'
-                          }
-                          rating={session.cards.length}
-                          delay={i * 0.15}
-                          onExplore={() => handleExploreSession(session)}
-                        />
-                      ))}
+                      <EvidenceCard
+                        key={session.session_id}
+                        idText={`S-${String(i + 1).padStart(2, '0')}`}
+                        title={session.location_name}
+                        type={
+                          (session.cards[0]?.category as CardType) || 'location'
+                        }
+                        rating={session.cards.length}
+                        delay={i * 0.15}
+                        onExplore={() => handleExploreSession(session)}
+                      />
+                    ))}
                 </div>
               )}
             </motion.div>

@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Mic } from 'lucide-react';
+import { ArrowRight, Mic, Command } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface SpeechResult {
   readonly isFinal: boolean;
@@ -37,11 +38,12 @@ interface SpeechRecognitionInstance extends EventTarget {
 }
 
 interface SearchInputProps {
-  onSubmit: (query: string) => void;
-  className?: string;
+  onSendQuery: (query: string) => void;
+  disabled?: boolean;
+  hasImage?: boolean;
 }
 
-export default function SearchInput({ onSubmit, className }: SearchInputProps) {
+export default function SearchInput({ onSendQuery, disabled, hasImage }: SearchInputProps) {
   const [query, setQuery] = useState('');
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
@@ -56,9 +58,10 @@ export default function SearchInput({ onSubmit, className }: SearchInputProps) {
 
   const handleSubmit = useCallback(() => {
     const trimmed = query.trim();
-    if (!trimmed) return;
-    onSubmit(trimmed);
-  }, [query, onSubmit]);
+    if (!trimmed || disabled) return;
+    onSendQuery(trimmed);
+    setQuery('');
+  }, [query, onSendQuery, disabled]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -79,8 +82,7 @@ export default function SearchInput({ onSubmit, className }: SearchInputProps) {
 
     const recognition = getSpeechRecognition();
     if (!recognition) {
-      // Fallback: navigate to dashboard with voice=true
-      onSubmit('__VOICE_FALLBACK__');
+      onSendQuery('__VOICE_FALLBACK__');
       return;
     }
 
@@ -101,24 +103,19 @@ export default function SearchInput({ onSubmit, className }: SearchInputProps) {
         const final = transcript.trim();
         if (final) {
           setIsListening(false);
-          onSubmit(final);
+          onSendQuery(final);
+          setQuery('');
         }
       }
     };
 
-    recognition.onerror = () => {
-      setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
 
     recognition.start();
     setIsListening(true);
-  }, [isListening, getSpeechRecognition, onSubmit]);
+  }, [isListening, getSpeechRecognition, onSendQuery]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (recognitionRef.current) {
@@ -128,25 +125,41 @@ export default function SearchInput({ onSubmit, className }: SearchInputProps) {
   }, []);
 
   return (
-    <div className={className}>
-      <div className="glass h-14 rounded-full flex items-center px-4 sm:px-8 border-electric-cyan/20 shadow-[0_0_40px_rgba(65,228,244,0.1)] group focus-within:border-electric-cyan/40 transition-all">
-        <span className="text-electric-cyan font-bold text-[10px] uppercase tracking-[0.2em] mr-4 sm:mr-6 whitespace-nowrap hidden sm:inline">
-          ASK NYC:
-        </span>
+    <motion.div
+      initial={{ y: 100, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ delay: 1.5, duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+      className="w-full max-w-4xl mx-auto"
+    >
+      <div className={cn(
+        "glass h-16 rounded-full flex items-center px-8 border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.6)] group focus-within:border-white/20 transition-all",
+        disabled && "opacity-50 pointer-events-none"
+      )}>
+        <div className="flex items-center gap-3 mr-6">
+          <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
+            <Command className="w-4 h-4 text-white/40" />
+          </div>
+          <span className="text-white/40 font-black text-[10px] uppercase tracking-[0.2em] hidden sm:inline pt-1">
+            ASK NYC
+          </span>
+          <div className="w-px h-4 bg-white/10 mx-2 hidden sm:block" />
+        </div>
+
         <input
           ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask about any NYC location..."
-          className="bg-transparent border-none outline-none flex-1 text-white/90 placeholder:text-white/20 text-sm font-medium min-w-0"
+          placeholder={hasImage ? "Analyze this evidence..." : "Identify active Manhattan jazz circuits..."}
+          className="bg-transparent border-none outline-none flex-1 text-white text-base font-light placeholder:text-white/10 tracking-wide font-mono"
         />
-        <div className="flex items-center gap-2 ml-2">
+
+        <div className="flex items-center gap-6 ml-2">
           {/* Mic button */}
           <button
             onClick={handleMicClick}
-            className="relative w-10 h-10 rounded-full flex items-center justify-center text-silver-mist/60 hover:text-electric-cyan hover:bg-electric-cyan/10 transition-all"
+            className="relative w-10 h-10 rounded-full flex items-center justify-center text-white/30 hover:text-white transition-all"
             aria-label={isListening ? 'Stop listening' : 'Start voice input'}
           >
             <Mic className="w-5 h-5" />
@@ -156,24 +169,24 @@ export default function SearchInput({ onSubmit, className }: SearchInputProps) {
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1.6, opacity: 0 }}
                   transition={{ duration: 1.2, repeat: Infinity, ease: 'easeOut' }}
-                  className="absolute inset-0 rounded-full bg-electric-cyan/30"
+                  className="absolute inset-0 rounded-full bg-health/20"
                 />
               )}
             </AnimatePresence>
-            {isListening && (
-              <div className="absolute inset-0 rounded-full border-2 border-electric-cyan animate-pulse" />
-            )}
           </button>
+
+          <div className="w-[1px] h-6 bg-white/10" />
+
           {/* Submit button */}
           <button
             onClick={handleSubmit}
-            className="w-10 h-10 rounded-full bg-electric-cyan flex items-center justify-center text-midnight shadow-[0_0_20px_rgba(65,228,244,0.4)] hover:scale-105 active:scale-95 transition-all"
-            aria-label="Search"
+            className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 active:scale-95 transition-all"
+            aria-label="Submit"
           >
             <ArrowRight className="w-5 h-5 stroke-[3]" />
           </button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

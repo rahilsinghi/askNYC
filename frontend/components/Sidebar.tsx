@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Compass, BarChart3, Clock, Settings, Zap } from 'lucide-react';
+import { Compass, BarChart3, Clock, Settings, Shield, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SidebarProps {
@@ -18,41 +18,43 @@ export default function Sidebar({ onSettingsClick }: SidebarProps) {
     ];
 
     return (
-        <aside className="fixed left-0 top-0 bottom-0 w-24 bg-midnight/90 backdrop-blur-3xl border-r border-white/5 z-[60] flex flex-col items-center py-8">
-            <div className="mb-12 flex flex-col items-center gap-4">
-                <div className="text-xl font-bold tracking-tighter text-silver-mist">
-                    <span className="text-electric-cyan">A</span>+NYC
+        <aside className="fixed left-6 top-6 bottom-6 w-20 bg-slate-950/40 backdrop-blur-2xl border border-white/10 z-[60] flex flex-col items-center py-10 rounded-[2rem] shadow-[0_0_40px_rgba(0,0,0,0.5)]">
+            <div className="mb-14 flex flex-col items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-white/20 to-transparent border border-white/20 flex items-center justify-center">
+                    <div className="w-4 h-4 rounded-full bg-white/80 shadow-[0_0_15px_rgba(255,255,255,0.8)]" />
                 </div>
-                <div className="w-[1px] h-8 bg-white/10" />
             </div>
 
-            <nav className="flex-1 flex flex-col gap-10">
+            <nav className="flex-1 flex flex-col gap-12">
                 {items.map((item, i) => (
                     <button
                         key={i}
                         onClick={item.onClick}
                         className={cn(
-                            "flex flex-col items-center gap-2 group transition-all relative px-4",
-                            item.active ? "text-electric-cyan font-bold" : "text-white/40 hover:text-white/80"
+                            "group transition-all relative flex flex-col items-center gap-2",
+                            item.active ? "text-white" : "text-white/30 hover:text-white/60"
                         )}
                     >
-                        {item.active && (
-                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-electric-cyan rounded-r-full shadow-[0_0_15px_#41E4F4]" />
-                        )}
                         <div className={cn(
-                            "p-3 rounded-2xl transition-all",
-                            item.active ? "bg-electric-cyan/10" : "group-hover:bg-white/5"
+                            "p-3 rounded-2xl transition-all duration-500",
+                            item.active ? "bg-white/10 ring-1 ring-white/20" : "group-hover:bg-white/5"
                         )}>
                             {item.icon}
                         </div>
-                        <span className="text-[9px] uppercase tracking-widest leading-none outline-none">{item.label}</span>
+                        {item.active && (
+                            <motion.div
+                                layoutId="active-indicator"
+                                className="absolute -left-4 top-1/2 -translate-y-1/2 w-1 h-6 bg-white rounded-r-full shadow-[0_0_15px_rgba(255,255,255,0.5)]"
+                            />
+                        )}
+                        <span className="text-[8px] font-black uppercase tracking-[0.2em]">{item.label}</span>
                     </button>
                 ))}
             </nav>
 
             <div className="mt-auto">
-                <div className="w-10 h-10 rounded-full glass-pill flex items-center justify-center text-silver-mist/40 border-white/5">
-                    <Compass className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-white/20 hover:text-white/50 transition-colors cursor-pointer hover:bg-white/5">
+                    <Shield className="w-4 h-4" />
                 </div>
             </div>
         </aside>
