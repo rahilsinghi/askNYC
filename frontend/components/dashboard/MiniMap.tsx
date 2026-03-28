@@ -148,7 +148,8 @@ export default function MiniMap({ pins, centerLat, centerLng }: MiniMapProps) {
         mapRef.current = null
       }
     }
-  }, [centerLat, centerLng])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Sync backend pins to markers
   useEffect(() => {

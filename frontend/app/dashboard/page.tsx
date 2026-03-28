@@ -7,6 +7,7 @@ import Sidebar from '@/components/dashboard/Sidebar'
 import CameraFeed from '@/components/dashboard/CameraFeed'
 import MiniMap from '@/components/dashboard/MiniMap'
 import IntelligenceBrief from '@/components/dashboard/IntelligenceBrief'
+import FloatingCards from '@/components/dashboard/FloatingCards'
 import SearchInput from '@/components/dashboard/SearchInput'
 import SettingsPanel from '@/components/SettingsPanel'
 import { useDashboardWs } from '@/hooks/useWebSocket'
@@ -101,6 +102,7 @@ function DashboardContent() {
           centerLat={ws.mapCenter?.lat}
           centerLng={ws.mapCenter?.lng}
         />
+        <FloatingCards cards={cards} />
       </div>
 
       {/* ─── Level 1: UI Overlay Layer ───────────────────────────────────────── */}
@@ -182,14 +184,11 @@ function DashboardContent() {
         <div className="pointer-events-auto flex-shrink-0">
           <IntelligenceBrief
             agentState={agentState}
-            cards={cards}
             toolCalls={toolCalls}
             transcript={transcript}
             sessionId={ws.sessionId}
             remoteUrl={ws.remoteUrl}
             remoteConnected={ws.remoteConnected}
-            onSendQuery={handleSendQuery}
-            hasImage={!!uploadedImage}
             sessionSummary={ws.sessionSummary}
           />
         </div>

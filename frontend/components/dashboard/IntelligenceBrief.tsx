@@ -2,20 +2,16 @@
 
 import { useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import { AgentState, DataCard as DataCardType, ToolCall, SessionSummary } from '@/lib/types'
+import { AgentState, ToolCall, SessionSummary } from '@/lib/types'
 import Waveform from './Waveform'
-import DataCard from './DataCard'
 
 interface IntelligenceBriefProps {
   agentState: AgentState
-  cards: DataCardType[]
   toolCalls: ToolCall[]
   transcript: string
   sessionId: string | null
   remoteUrl: string | null
   remoteConnected: boolean
-  onSendQuery?: (text: string) => void
-  hasImage?: boolean
   sessionSummary?: SessionSummary | null
 }
 
@@ -33,22 +29,57 @@ const STATE_COLOR: Record<AgentState, string> = {
   speaking: '#3b82f6',
 }
 
+function QrBridge({ url, sessionId }: { url: string; sessionId: string | null }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="pt-4 border-t border-white/5 space-y-3">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between group"
+      >
+        <p className="text-[9px] font-bold tracking-[0.2em] text-white/30 uppercase group-hover:text-white/50 transition-colors">
+          Grid_Bridge
+        </p>
+        <div className="flex items-center gap-2">
+          <span className="text-[8px] font-bold text-white/20 group-hover:text-white/40 transition-colors">
+            {open ? 'HIDE' : 'SHOW'}
+          </span>
+          <div className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[8px] font-bold animate-pulse">
+            PENDING_SYNC
+          </div>
+        </div>
+      </button>
+
+      {open && (
+        <div className="flex items-center gap-4">
+          <div className="p-2 bg-white rounded-lg opacity-80 hover:opacity-100 transition-opacity">
+            <QRCodeSVG value={url} size={56} />
+          </div>
+          <div className="flex-1">
+            <p className="text-[9px] text-white/30 leading-relaxed mb-2 uppercase tracking-tighter">
+              Bridge node for mobile telemetry.
+            </p>
+            <code className="text-[8px] text-cyan-glow block font-bold">SHA: {sessionId?.slice(0, 12)}</code>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function IntelligenceBrief({
   agentState,
-  cards,
   toolCalls,
   transcript,
   sessionId,
   remoteUrl,
   remoteConnected,
-  onSendQuery,
-  hasImage,
   sessionSummary,
 }: IntelligenceBriefProps) {
   const stateColor = STATE_COLOR[agentState]
   const stateLabel = STATE_LABEL[agentState]
 
-  // Build remote page URL
   const remoteFullUrl = typeof window !== 'undefined' && remoteUrl
     ? `${window.location.origin}${remoteUrl}`
     : null
@@ -77,12 +108,12 @@ export default function IntelligenceBrief({
       </div>
 
       {/* Waveform & Transcript */}
-      <div className="px-6 py-8 border-b border-white/5 bg-white/[0.02]">
+      <div className="flex-1 overflow-y-auto scrollbar-none px-6 py-8 border-b border-white/5 bg-white/[0.02]">
         <Waveform state={agentState} />
         <div className="mt-6 min-h-[50px]">
           {transcript ? (
             <p className="text-[11px] leading-relaxed font-medium text-white/90 italic">
-              "{transcript}"
+              &ldquo;{transcript}&rdquo;
             </p>
           ) : (
             <p className="text-[10px] tracking-wide text-white/20 uppercase">
@@ -115,30 +146,8 @@ export default function IntelligenceBrief({
         </div>
       )}
 
-      {/* Insights Stream */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 scrollbar-none">
-        <div className="flex items-center justify-between mb-6">
-          <span className="text-[9px] font-bold tracking-[0.2em] text-white/20 uppercase">Intelligence Briefing</span>
-          <div className="w-12 h-px bg-white/5" />
-        </div>
-
-        {cards.length === 0 ? (
-          <div className="h-48 flex flex-col items-center justify-center opacity-10">
-            <div className="w-8 h-8 rounded-full border border-dashed border-white mb-4 animate-spin-slow" />
-            <p className="text-[9px] font-bold tracking-[0.3em]">SYNCHRONIZING</p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {cards.map((card, i) => (
-              <DataCard key={`${card.badge_label}-${i}`} card={card} index={i} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Footer: Recent Sync / Mobile Link */}
+      {/* Footer */}
       <div className="mt-auto p-6 bg-white/[0.02] border-t border-white/5 space-y-6">
-        {/* Recent Explore section from main */}
         <div>
           <p className="text-[9px] tracking-[0.2em] text-white/20 font-bold mb-3 uppercase">Recent Exploration</p>
           {sessionSummary ? (
@@ -165,7 +174,6 @@ export default function IntelligenceBrief({
           )}
         </div>
 
-        {/* QR Section */}
         {!remoteConnected && remoteFullUrl ? (
           <QrBridge url={remoteFullUrl} sessionId={sessionId} />
         ) : (
@@ -178,45 +186,6 @@ export default function IntelligenceBrief({
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-function QrBridge({ url, sessionId }: { url: string; sessionId: string | null }) {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <div className="pt-4 border-t border-white/5 space-y-3">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between group"
-      >
-        <p className="text-[9px] font-bold tracking-[0.2em] text-white/30 uppercase group-hover:text-white/50 transition-colors">
-          Grid_Bridge
-        </p>
-        <div className="flex items-center gap-2">
-          <span className="text-[8px] font-bold text-white/20 group-hover:text-white/40 transition-colors">
-            {open ? 'HIDE' : 'SHOW'}
-          </span>
-          <div className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[8px] font-bold animate-pulse">
-            PENDING_SYNC
-          </div>
-        </div>
-      </button>
-
-      {open && (
-        <div className="flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="p-2 bg-white rounded-lg opacity-80 hover:opacity-100 transition-opacity">
-            <QRCodeSVG value={url} size={56} />
-          </div>
-          <div className="flex-1">
-            <p className="text-[9px] text-white/30 leading-relaxed mb-2 uppercase tracking-tighter">
-              Bridge node for mobile telemetry.
-            </p>
-            <code className="text-[8px] text-cyan-glow block font-bold">SHA: {sessionId?.slice(0, 12)}</code>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
