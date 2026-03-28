@@ -1,17 +1,32 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type { Metadata } from "next";
+import { Inter, Playfair_Display } from "next/font/google";
+import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: '--font-inter',
+});
+
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  variable: '--font-playfair',
+});
 
 export const metadata: Metadata = {
-  title: 'Ask NYC',
-  description: 'The city knows. Now you can ask.',
-}
+  title: "ASK NYC — Antigravity",
+  description: "A cinematic, living city intelligence atlas for New York City.",
+};
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en">
-      <body className="h-screen bg-bg text-[#f4f4f5]">
+    <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
+      <body className="antialiased">
         {children}
       </body>
     </html>
-  )
+  );
 }
