@@ -1,19 +1,21 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display } from "next/font/google";
+import { Syne, DM_Mono } from "next/font/google";
+import "mapbox-gl/dist/mapbox-gl.css";
 import "./globals.css";
 
-const inter = Inter({
+const syne = Syne({
   subsets: ["latin"],
-  variable: '--font-inter',
+  variable: '--font-syne',
 });
 
-const playfair = Playfair_Display({
+const dmMono = DM_Mono({
+  weight: ['400', '500'],
   subsets: ["latin"],
-  variable: '--font-playfair',
+  variable: '--font-dm-mono',
 });
 
 export const metadata: Metadata = {
-  title: "ASK NYC — Antigravity",
+  title: "ASK NYC 🗽 AI Intelligence Dashboard",
   description: "A cinematic, living city intelligence atlas for New York City.",
 };
 
@@ -23,8 +25,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
-      <body className="antialiased">
+    <html lang="en" className={`${syne.variable} ${dmMono.variable} dark`}>
+      <body className="antialiased font-mono bg-[#0c0c0f] text-white/90">
         {children}
       </body>
     </html>
