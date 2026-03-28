@@ -74,7 +74,7 @@ This is a **2-day hackathon build** for the NYC Build With AI Hackathon @ NYU Ta
    - `{type: "tool_call"}` → dashboard shows tool badge animation
    - `{type: "detection"}` → dashboard shows bounding box label
    - `{type: "agent_state"}` → waveform animation state
-10. **Session** saved to in-memory store on conversation end
+10. **Session** saved to JSON file (`/tmp/asknyc_sessions.json`) on conversation end
 
 ---
 
@@ -215,47 +215,61 @@ GET /resource/43nn-pn8j.json
 
 ---
 
-## ADK Multi-Agent Architecture
+## ADK Architecture — Composite Tool Pattern
 
-Root coordinator + 5 specialist sub-agents. ADK `Runner.run_live()` handles tool execution automatically.
+> **Key learning:** Gemini Live can only reliably execute ONE tool call per turn.
+> Sub-agent delegation and multi-tool chaining both fail — the model goes idle
+> after the first tool completes. We use a single composite tool instead.
 
 ```python
-# Root agent (coordinates, geocodes, searches web, drops map pins)
-root_agent.tools = [geocode_location, push_map_event, google_search]
-root_agent.sub_agents = [FoodSafetyExpert, HousingExpert, SafetyExpert, ConstructionExpert, TransitExpert]
-
-# Sub-agent tool assignments:
-FoodSafetyExpert.tools = [query_restaurant_inspections, query_311_complaints]
-HousingExpert.tools = [query_hpd_violations, query_evictions, query_311_complaints]
-SafetyExpert.tools = [query_nypd_incidents]
-ConstructionExpert.tools = [query_dob_permits, query_311_complaints]
-TransitExpert.tools = [query_subway_entrances]
+# Single root agent with one composite tool
+root_agent = LlmAgent(
+    name="AskNYC",
+    model="gemini-live-2.5-flash-native-audio",
+    tools=[investigate_location],
+)
 ```
 
-The `push_map_event` tool is special — it doesn't query external APIs. It fires a WebSocket message to the dashboard, causing a map pin to appear. The agent calls it after receiving data to make the visualization update.
+### `investigate_location(location_name, question_topic)` — the core tool
+
+This single tool call does everything in one shot:
+1. Geocodes the location via Google Maps API
+2. Queries relevant Socrata datasets based on `question_topic` (food_safety, housing, safety, construction, transit, general)
+3. Pushes `data_card` events to the dashboard for each result
+4. Pushes `map_event` pins to the dashboard map
+5. Pushes `tool_call` status badges (pending → complete) for each sub-query
+6. Returns a text summary for the model to synthesize into spoken audio
+
+### Topic → Dataset mapping
+| question_topic | Datasets queried |
+|---------------|------------------|
+| food_safety | restaurant_inspections + 311_complaints |
+| safety | nypd_incidents |
+| housing | hpd_violations + evictions |
+| construction | dob_permits + 311_complaints |
+| transit | subway_entrances |
+| general | restaurant_inspections + 311_complaints + nypd_incidents + hpd_violations |
+
+### Session lifecycle
+- Gemini Live session is NOT started on connect — deferred until first input
+- Auto-reconnects after idle timeout (error 1000, ~2-3 min without input)
+- `_ensure_alive()` restarts the LiveRequestQueue when new input arrives
 
 ---
 
-## Agent System Prompts
+## Agent System Prompt
 
-All prompts are defined in `backend/services/gemini_service.py`. Key prompts:
+Single `ROOT_PROMPT` defined in `backend/services/gemini_service.py`.
 
-- **ROOT_PROMPT** — Root coordinator persona (knowledgeable NYC local), camera workflow, delegation rules
-- **FOOD_SAFETY_PROMPT** — Restaurant inspections + 311 food complaints
-- **HOUSING_PROMPT** — HPD violations, evictions, building condition complaints
-- **SAFETY_PROMPT** — NYPD incidents, felony/misdemeanor breakdown
-- **CONSTRUCTION_PROMPT** — DOB permits, noise complaints
-- **TRANSIT_PROMPT** — Subway entrances, train line access
+The model is instructed to call `investigate_location()` for EVERY question, choosing the right `question_topic`:
+- "Can I eat here?" → `food_safety`
+- "Is it safe?" → `safety`
+- "Should I live here?" → `housing`
+- "What's being built?" → `construction`
+- "What trains?" → `transit`
+- General → `general`
 
-**Delegation rules** (root agent decides which sub-agent to call):
-- "Is this safe to eat?" → FoodSafetyExpert
-- "Is this safe at night?" → SafetyExpert
-- "Should I live here?" → HousingExpert + TransitExpert
-- "What's being built?" → ConstructionExpert
-- "What trains are nearby?" → TransitExpert
-- General questions → Google Search + own knowledge
-
-**Model:** `gemini-live-2.5-flash-native-audio` (all agents)
+**Model:** `gemini-live-2.5-flash-native-audio`
 
 ---
 
