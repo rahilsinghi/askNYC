@@ -48,7 +48,7 @@ async def query_restaurant_inspections(
     lat: Optional[float] = None,
     lng: Optional[float] = None,
     radius_meters: int = 500,
-) -> DataCard | None:
+) -> dict | None:
     """
     Fetch NYC restaurant inspection grade and violations.
     Searches by business name first; falls back to radius if no name match.
@@ -106,7 +106,7 @@ async def query_restaurant_inspections(
         badge_label="HEALTH INSPECTION",
         title=f"Grade {grade}",
         detail=detail,
-    )
+    ).model_dump()
 
 
 # ─── Tool 2: 311 Complaints ──────────────────────────────────────────────────
@@ -116,7 +116,7 @@ async def query_311_complaints(
     lng: float,
     radius_meters: int = 400,
     days_back: int = 90,
-) -> DataCard | None:
+) -> dict | None:
     """
     Fetch recent 311 service requests near a location.
     Returns a DataCard summarizing complaint patterns.
@@ -165,7 +165,7 @@ async def query_311_complaints(
         badge_label="311 COMPLAINTS",
         title=f"{total} Complaints",
         detail=detail,
-    )
+    ).model_dump()
 
 
 # ─── Tool 3: DOB Permits ─────────────────────────────────────────────────────
@@ -174,7 +174,7 @@ async def query_dob_permits(
     lat: float,
     lng: float,
     radius_meters: int = 300,
-) -> DataCard | None:
+) -> dict | None:
     """
     Fetch active DOB building permits near a location.
     Returns a DataCard about construction activity.
@@ -217,7 +217,7 @@ async def query_dob_permits(
         badge_label="DOB PERMITS",
         title=f"{total} Active Permits",
         detail=detail,
-    )
+    ).model_dump()
 
 
 # ─── Tool 4: HPD Violations ──────────────────────────────────────────────────
@@ -226,7 +226,7 @@ async def query_hpd_violations(
     lat: float,
     lng: float,
     radius_meters: int = 200,
-) -> DataCard | None:
+) -> dict | None:
     """
     Fetch HPD (Housing Preservation & Development) violations near a location.
     Returns a DataCard about building code violations.
@@ -266,7 +266,7 @@ async def query_hpd_violations(
             badge_label="HPD VIOLATIONS",
             title="No Open Violations",
             detail=f"No open HPD violations found nearby. Building appears compliant.",
-        )
+        ).model_dump()
 
     total = len(results)
 
@@ -298,7 +298,7 @@ async def query_hpd_violations(
         badge_label="HPD VIOLATIONS",
         title=title,
         detail=detail,
-    )
+    ).model_dump()
 
 
 def _approx_boroid(lat: float, lng: float) -> int:
@@ -338,7 +338,7 @@ async def query_nypd_incidents(
     lng: float,
     radius_meters: int = 400,
     days_back: int = 180,
-) -> DataCard | None:
+) -> dict | None:
     """
     Fetch NYPD complaint data near a location.
     Returns a DataCard about safety profile.
@@ -361,7 +361,7 @@ async def query_nypd_incidents(
             badge_label="NYPD INCIDENTS",
             title="Quiet Area",
             detail=f"No incidents reported within {radius_meters}m in the last {days_back} days.",
-        )
+        ).model_dump()
 
     total = len(results)
 
@@ -391,7 +391,7 @@ async def query_nypd_incidents(
         badge_label="NYPD INCIDENTS",
         title=severity,
         detail=detail,
-    )
+    ).model_dump()
 
 
 # ─── Tool 6: Evictions ─────────────────────────────────────────────────────
@@ -401,7 +401,7 @@ async def query_evictions(
     lng: float,
     radius_meters: int = 500,
     days_back: int = 365,
-) -> DataCard | None:
+) -> dict | None:
     """
     Fetch recent eviction records near a location.
     Returns a DataCard about eviction activity for housing assessment.
@@ -430,7 +430,7 @@ async def query_evictions(
             badge_label="EVICTIONS",
             title="No Recent Evictions",
             detail=f"No evictions executed in {zip_code} in the last {days_back} days. Stable area.",
-        )
+        ).model_dump()
 
     total = len(results)
 
@@ -458,7 +458,7 @@ async def query_evictions(
         badge_label="EVICTIONS",
         title=f"{total} Evictions",
         detail=detail,
-    )
+    ).model_dump()
 
 
 # ─── Tool 7: Subway Entrances ──────────────────────────────────────────────
@@ -467,7 +467,7 @@ async def query_subway_entrances(
     lat: float,
     lng: float,
     radius_meters: int = 500,
-) -> DataCard | None:
+) -> dict | None:
     """
     Find nearby subway station entrances and available train lines.
     Returns a DataCard with transit access information.
@@ -486,7 +486,7 @@ async def query_subway_entrances(
             badge_label="SUBWAY ACCESS",
             title="No Nearby Stations",
             detail=f"No subway entrances within {radius_meters}m. Transit desert — plan accordingly.",
-        )
+        ).model_dump()
 
     # Deduplicate by station name
     stations: dict[str, set[str]] = {}
@@ -524,4 +524,4 @@ async def query_subway_entrances(
         badge_label="SUBWAY ACCESS",
         title=f"{station_count} Station{'s' if station_count != 1 else ''}",
         detail=detail,
-    )
+    ).model_dump()
