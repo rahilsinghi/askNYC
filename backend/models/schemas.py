@@ -80,6 +80,7 @@ class DetectionMessage(BaseModel):
     type: Literal["detection"] = "detection"
     label: str
     confidence: float
+    box: Optional[list[float]] = None  # [ymin, xmin, ymax, xmax] normalized 0-1000
     address: Optional[str] = None
 
 

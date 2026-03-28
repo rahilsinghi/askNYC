@@ -44,7 +44,11 @@ const NAV = [
   },
 ]
 
-export default function Sidebar() {
+interface SidebarProps {
+  onSettingsClick?: () => void
+}
+
+export default function Sidebar({ onSettingsClick }: SidebarProps) {
   const pathname = usePathname()
 
   return (
@@ -60,6 +64,23 @@ export default function Sidebar() {
       <nav className="flex flex-col gap-1 px-4">
         {NAV.map(({ label, href, icon }) => {
           const active = pathname === href
+          if (label === 'SETTINGS') {
+            return (
+              <button
+                key={href}
+                onClick={onSettingsClick}
+                className={clsx(
+                  'flex items-center gap-4 px-4 h-12 w-full rounded-lg font-bold text-[10px] tracking-[0.2em] transition-all group',
+                  'text-white/30 hover:text-white hover:bg-white/5'
+                )}
+              >
+                <span className="transition-transform group-hover:scale-110">
+                  {icon}
+                </span>
+                {label}
+              </button>
+            )
+          }
           return (
             <Link
               key={href}
@@ -78,6 +99,19 @@ export default function Sidebar() {
             </Link>
           )
         })}
+
+        {/* Back to Hub */}
+        <Link
+          href="/"
+          className="flex items-center gap-4 px-4 h-12 rounded-lg font-bold text-[10px] tracking-[0.2em] text-white/30 hover:text-white hover:bg-white/5 transition-all group mt-4 border-t border-white/5 pt-4"
+        >
+          <span className="transition-transform group-hover:-translate-x-1">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+          </span>
+          BACK TO HUB
+        </Link>
       </nav>
 
       <div className="flex-1" />

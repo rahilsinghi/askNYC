@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { ImagePlus, X } from 'lucide-react'
+import React, { useState, useRef, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ArrowRight, Mic, ImagePlus, X } from 'lucide-react'
 
 interface SearchInputProps {
     onSendQuery: (text: string) => void
@@ -12,17 +13,34 @@ interface SearchInputProps {
     onImageClear?: () => void
 }
 
-export default function SearchInput({ onSendQuery, disabled, hasImage, uploadedImage, onImageUpload, onImageClear }: SearchInputProps) {
+export default function SearchInput({
+    onSendQuery,
+    disabled,
+    hasImage,
+    uploadedImage,
+    onImageUpload,
+    onImageClear
+}: SearchInputProps) {
     const [query, setQuery] = useState('')
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const inputRef = useRef<HTMLInputElement>(null)
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault()
-        if (query.trim() && !disabled) {
-            onSendQuery(query.trim())
-            setQuery('')
-        }
-    }
+    const handleSubmit = useCallback(() => {
+        const trimmed = query.trim()
+        if (!trimmed || disabled) return
+        onSendQuery(trimmed)
+        setQuery('')
+    }, [query, onSendQuery, disabled])
+
+    const handleKeyDown = useCallback(
+        (e: React.KeyboardEvent) => {
+            if (e.key === 'Enter') {
+                e.preventDefault()
+                handleSubmit()
+            }
+        },
+        [handleSubmit]
+    )
 
     const handleFile = (file: File) => {
         if (!file.type.startsWith('image/') || !onImageUpload) return
@@ -49,75 +67,105 @@ export default function SearchInput({ onSendQuery, disabled, hasImage, uploadedI
     }
 
     return (
-        <div className="w-full max-w-2xl mx-auto pb-8 px-4">
+        <div className="w-full max-w-4xl mx-auto px-6 pb-8">
             {/* Thumbnail preview */}
-            {uploadedImage && (
-                <div className="flex items-center gap-2 mb-2 ml-1">
-                    <div className="relative group">
-                        <img
-                            src={`data:image/jpeg;base64,${uploadedImage}`}
-                            alt="Attached"
-                            className="w-12 h-12 rounded-lg object-cover border border-white/10"
-                        />
-                        {onImageClear && (
-                            <button
-                                onClick={onImageClear}
-                                className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                                <X className="w-2.5 h-2.5 text-white" />
-                            </button>
-                        )}
-                    </div>
-                    <span className="text-[9px] font-mono tracking-wider text-cyan-400/60 uppercase">Image attached — type your question</span>
-                </div>
-            )}
+            <AnimatePresence>
+                {uploadedImage && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="flex items-center gap-3 mb-4 ml-6"
+                    >
+                        <div className="relative group">
+                            <img
+                                src={`data:image/jpeg;base64,${uploadedImage}`}
+                                alt="Attached"
+                                className="w-12 h-12 rounded-xl object-cover border border-cyan-400/30 shadow-[0_0_15px_rgba(34,211,238,0.2)]"
+                            />
+                            {onImageClear && (
+                                <button
+                                    onClick={onImageClear}
+                                    className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500/80 backdrop-blur-sm flex items-center justify-center border border-white/20 hover:bg-red-500 transition-colors"
+                                >
+                                    <X className="w-3 h-3 text-white" />
+                                </button>
+                            )}
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold tracking-[0.2em] text-cyan-400 uppercase">Image attached</span>
+                            <span className="text-[9px] text-white/30 uppercase tracking-tighter">Analyzing visual data node...</span>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-            <form
-                onSubmit={handleSubmit}
-                className="glass rounded-xl p-1.5 flex items-center gap-3 shadow-[0_0_40px_rgba(21,191,210,0.15)] border-cyan-glow/20"
+            <motion.div
+                initial={{ y: 50, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                className={`
+                    bg-[#07111D]/80 backdrop-blur-3xl h-14 rounded-full flex items-center px-6 border border-white/5 
+                    shadow-[0_20px_60px_rgba(0,0,0,0.8)] focus-within:border-cyan-400/20 transition-all
+                    ${disabled ? 'opacity-50 pointer-events-none' : ''}
+                `}
             >
-                <div className="pl-4 pr-1 flex items-center gap-2 border-r border-white/10 select-none">
-                    <span className="text-[10px] font-bold tracking-[0.2em] text-cyan-glow">ASK</span>
-                    <span className="text-[10px] font-bold tracking-[0.2em] text-white/40">NYC</span>
+                <div className="flex items-center gap-1.5 mr-4 whitespace-nowrap border-r border-white/10 pr-4">
+                    <span className="text-cyan-400 font-black text-[10px] uppercase tracking-[0.2em] pt-0.5">
+                        ASK NYC
+                    </span>
                 </div>
 
                 <input
+                    ref={inputRef}
                     type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder={uploadedImage ? "Ask about this location..." : "What is the health grade of this restaurant?"}
-                    className="flex-1 bg-transparent border-none outline-none text-sm font-medium placeholder:text-white/20 px-2"
+                    onKeyDown={handleKeyDown}
+                    placeholder={hasImage ? "Analyze this evidence..." : "State your query or destination..."}
+                    className="bg-transparent border-none outline-none flex-1 text-white/90 text-[13px] font-medium placeholder:text-white/10 tracking-wide font-sans min-w-0"
                     disabled={disabled}
                 />
 
-                {/* Image upload button */}
-                {onImageUpload && (
-                    <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-                            uploadedImage
-                                ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30'
-                                : 'text-white/30 hover:text-white/60 hover:bg-white/5'
-                        }`}
-                        title="Upload an image"
-                    >
-                        <ImagePlus className="w-4 h-4" />
-                    </button>
-                )}
+                <div className="flex items-center gap-3 ml-2">
+                    {/* Image upload button */}
+                    {onImageUpload && (
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${uploadedImage
+                                    ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30 shadow-[0_0_10px_rgba(34,211,238,0.2)]'
+                                    : 'text-white/20 hover:text-white/60 hover:bg-white/5'
+                                }`}
+                            title="Upload an image"
+                        >
+                            <ImagePlus className="w-4 h-4" />
+                        </button>
+                    )}
 
-                <button
-                    type="submit"
-                    disabled={disabled || !query.trim()}
-                    className="h-10 px-6 rounded-lg bg-cyan-glow/10 hover:bg-cyan-glow/20 border border-cyan-glow/30 text-cyan-glow text-[10px] font-bold tracking-widest transition-all disabled:opacity-30 flex items-center gap-2"
-                >
-                    {hasImage && <div className="w-1 h-1 rounded-full bg-cyan-glow animate-pulse" />}
-                    ANALYZE
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="ml-1">
-                        <path d="M2 6h8M6 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                </button>
-            </form>
+                    <div className="w-px h-6 bg-white/5" />
+
+                    <button
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-white/15 hover:text-white/40 transition-all"
+                        aria-label="Voice input"
+                    >
+                        <Mic className="w-5 h-5" />
+                    </button>
+
+                    {/* Submit button */}
+                    <button
+                        onClick={handleSubmit}
+                        disabled={disabled || !query.trim()}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-[0_0_25px_rgba(34,211,238,0.6)] 
+                            ${disabled || !query.trim()
+                                ? 'bg-white/5 text-white/10 shadow-none grayscale'
+                                : 'bg-cyan-400 text-[#07111D] hover:shadow-[0_0_35px_rgba(34,211,238,0.8)] hover:scale-110 active:scale-95'
+                            }`}
+                        aria-label="Submit"
+                    >
+                        <ArrowRight className="w-5 h-5 stroke-[4]" />
+                    </button>
+                </div>
+            </motion.div>
 
             <input
                 ref={fileInputRef}

@@ -37,6 +37,8 @@ function timeAgo(iso: string): string {
   return 'just now';
 }
 
+import DashboardLayout from '@/components/dashboard/DashboardLayout';
+
 export default function ArchivePage() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,92 +84,86 @@ export default function ArchivePage() {
   }, [sessions, search, timeFilter]);
 
   return (
-    <main className="min-h-screen bg-midnight text-silver-mist p-12">
-      <div className="max-w-7xl mx-auto space-y-12">
-        {/* Header */}
-        <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-          <div className="space-y-4">
-            <Link
-              href="/"
-              className="flex items-center gap-2 text-silver-mist/40 hover:text-electric-cyan transition-colors mb-4 group"
-            >
-              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-              <span className="text-xs font-mono uppercase tracking-widest">Back to Atlas</span>
-            </Link>
-            <h1 className="text-6xl font-medium tracking-tight">Intelligence Archive</h1>
-            <p className="text-silver-mist/60 max-w-lg">
-              A temporal record of city scans, captured through the Antigravity intelligence lens.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="glass-pill h-12 px-6 flex items-center gap-3">
-              <Search className="w-4 h-4 text-silver-mist/40" />
-              <input
-                type="text"
-                placeholder="Search locations..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="bg-transparent border-none outline-none text-sm w-48 placeholder:text-silver-mist/20"
-              />
+    <DashboardLayout>
+      <main className="min-h-full p-12">
+        <div className="max-w-7xl mx-auto space-y-12">
+          {/* Header */}
+          <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+            <div className="space-y-4">
+              <h1 className="text-6xl font-medium tracking-tight">Intelligence Archive</h1>
+              <p className="text-silver-mist/60 max-w-lg">
+                A temporal record of city scans, captured through the Antigravity intelligence lens.
+              </p>
             </div>
-            <div className="flex gap-1">
-              {(['ALL', 'WEEK', 'TODAY'] as const).map((tf) => (
-                <button
-                  key={tf}
-                  onClick={() => setTimeFilter(tf)}
-                  className={`glass-pill h-10 px-4 flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest transition-colors ${
-                    timeFilter === tf
+
+            <div className="flex items-center gap-4">
+              <div className="glass-pill h-12 px-6 flex items-center gap-3">
+                <Search className="w-4 h-4 text-silver-mist/40" />
+                <input
+                  type="text"
+                  placeholder="Search locations..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="bg-transparent border-none outline-none text-sm w-48 placeholder:text-silver-mist/20"
+                />
+              </div>
+              <div className="flex gap-1">
+                {(['ALL', 'WEEK', 'TODAY'] as const).map((tf) => (
+                  <button
+                    key={tf}
+                    onClick={() => setTimeFilter(tf)}
+                    className={`glass-pill h-10 px-4 flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest transition-colors ${timeFilter === tf
                       ? 'text-electric-cyan border-electric-cyan/30'
                       : 'text-silver-mist/40 hover:text-silver-mist/60'
-                  }`}
-                >
-                  <Clock className="w-3 h-3" />
-                  {tf === 'ALL' ? 'All' : tf === 'WEEK' ? 'This Week' : 'Today'}
-                </button>
+                      }`}
+                  >
+                    <Clock className="w-3 h-3" />
+                    {tf === 'ALL' ? 'All' : tf === 'WEEK' ? 'This Week' : 'Today'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </header>
+
+          {/* Content */}
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-32 gap-4">
+              <Loader2 className="w-8 h-8 text-electric-cyan animate-spin" />
+              <p className="text-silver-mist/40 text-sm font-mono">Loading sessions...</p>
+            </div>
+          )}
+
+          {!loading && error && (
+            <div className="flex flex-col items-center justify-center py-32 gap-4">
+              <p className="text-silver-mist/40 text-sm font-mono">
+                Could not reach the backend. Make sure the server is running.
+              </p>
+            </div>
+          )}
+
+          {!loading && !error && filtered.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-32 gap-4">
+              <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
+                <Clock className="w-7 h-7 text-silver-mist/20" />
+              </div>
+              <p className="text-silver-mist/40 text-sm font-mono">
+                {sessions.length === 0
+                  ? 'No sessions yet. Start scanning to build your archive.'
+                  : 'No sessions match your filters.'}
+              </p>
+            </div>
+          )}
+
+          {!loading && !error && filtered.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {filtered.map((session, index) => (
+                <SessionArchiveCard key={session.session_id} session={session} index={index} />
               ))}
             </div>
-          </div>
-        </header>
-
-        {/* Content */}
-        {loading && (
-          <div className="flex flex-col items-center justify-center py-32 gap-4">
-            <Loader2 className="w-8 h-8 text-electric-cyan animate-spin" />
-            <p className="text-silver-mist/40 text-sm font-mono">Loading sessions...</p>
-          </div>
-        )}
-
-        {!loading && error && (
-          <div className="flex flex-col items-center justify-center py-32 gap-4">
-            <p className="text-silver-mist/40 text-sm font-mono">
-              Could not reach the backend. Make sure the server is running.
-            </p>
-          </div>
-        )}
-
-        {!loading && !error && filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-32 gap-4">
-            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
-              <Clock className="w-7 h-7 text-silver-mist/20" />
-            </div>
-            <p className="text-silver-mist/40 text-sm font-mono">
-              {sessions.length === 0
-                ? 'No sessions yet. Start scanning to build your archive.'
-                : 'No sessions match your filters.'}
-            </p>
-          </div>
-        )}
-
-        {!loading && !error && filtered.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filtered.map((session, index) => (
-              <SessionArchiveCard key={session.session_id} session={session} index={index} />
-            ))}
-          </div>
-        )}
-      </div>
-    </main>
+          )}
+        </div>
+      </main>
+    </DashboardLayout>
   );
 }
 
@@ -191,11 +187,10 @@ function SessionArchiveCard({
       <div className="aspect-[4/3] rounded-3xl overflow-hidden glass mb-6 relative flex flex-col justify-end p-8">
         {/* Gradient background based on anomaly */}
         <div
-          className={`absolute inset-0 ${
-            session.anomaly_found
-              ? 'bg-gradient-to-br from-red-900/30 via-midnight to-midnight'
-              : 'bg-gradient-to-br from-electric-cyan/10 via-midnight to-midnight'
-          }`}
+          className={`absolute inset-0 ${session.anomaly_found
+            ? 'bg-gradient-to-br from-red-900/30 via-midnight to-midnight'
+            : 'bg-gradient-to-br from-electric-cyan/10 via-midnight to-midnight'
+            }`}
         />
 
         {/* Category pills */}

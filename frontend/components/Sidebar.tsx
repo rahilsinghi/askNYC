@@ -18,10 +18,12 @@ export default function Sidebar({ onSettingsClick }: SidebarProps) {
     ];
 
     return (
-        <aside className="fixed left-6 top-6 bottom-6 w-20 bg-slate-950/40 backdrop-blur-2xl border border-white/10 z-[60] flex flex-col items-center py-10 rounded-[2rem] shadow-[0_0_40px_rgba(0,0,0,0.5)]">
-            <div className="mb-14 flex flex-col items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-white/20 to-transparent border border-white/20 flex items-center justify-center">
-                    <div className="w-4 h-4 rounded-full bg-white/80 shadow-[0_0_15px_rgba(255,255,255,0.8)]" />
+        <aside className="fixed left-6 top-6 bottom-6 w-20 bg-[#07111D]/90 backdrop-blur-3xl border border-white/10 z-[100] flex flex-col items-center py-10 rounded-[2rem] shadow-[0_0_50px_rgba(0,0,0,0.9)]">
+            <div className="mb-14 flex flex-col items-center">
+                <div className="text-[10px] font-black text-white tracking-[0.2em] flex items-center gap-1">
+                    <span>A</span>
+                    <span className="text-cyan-400">+</span>
+                    <span>NYC</span>
                 </div>
             </div>
 
@@ -44,7 +46,7 @@ export default function Sidebar({ onSettingsClick }: SidebarProps) {
                         {item.active && (
                             <motion.div
                                 layoutId="active-indicator"
-                                className="absolute -left-4 top-1/2 -translate-y-1/2 w-1 h-6 bg-white rounded-r-full shadow-[0_0_15px_rgba(255,255,255,0.5)]"
+                                className="absolute -left-10 top-1/2 -translate-y-1/2 w-[3px] h-8 bg-cyan-400 shadow-[0_0_15px_#22d3ee] rounded-r-full"
                             />
                         )}
                         <span className="text-[8px] font-black uppercase tracking-[0.2em]">{item.label}</span>

@@ -16,7 +16,7 @@ export interface DashboardState {
   mapCenter: { lat: number; lng: number } | null
   toolCalls: ToolCall[]
   transcript: string
-  detection: { label: string; confidence: number } | null
+  detection: { label: string; confidence: number; box?: number[] } | null
   sessionSummary: SessionSummary | null
   capturedImage: string | null
   remoteConnected: boolean
@@ -45,11 +45,10 @@ export function useDashboardWs(): DashboardState & { sendQuery: (image: string |
     isConnected: false,
   })
 
-  // iOS requires AudioContext creation inside a user gesture. We set up a
-  // one-shot listener so the first tap/click on the dashboard page creates it.
+  // iOS requires AudioContext creation inside a user gesture.
   const initAudio = useCallback(() => {
     if (!audioCtxRef.current) {
-      audioCtxRef.current = new AudioContext({ sampleRate: 24000 })
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 })
     }
     if (audioCtxRef.current.state === 'suspended') {
       audioCtxRef.current.resume()
@@ -82,7 +81,6 @@ export function useDashboardWs(): DashboardState & { sendQuery: (image: string |
       const src = ctx.createBufferSource()
       src.buffer = buf
       src.connect(ctx.destination)
-      // Schedule chunk to play after the previous one finishes
       const now = ctx.currentTime
       const startAt = Math.max(now, nextPlayTimeRef.current)
       src.start(startAt)
@@ -96,7 +94,6 @@ export function useDashboardWs(): DashboardState & { sendQuery: (image: string |
     console.log('[ws] received:', msg.type, msg.type === 'audio_chunk' ? '(audio)' : JSON.stringify(msg).slice(0, 200))
     switch (msg.type) {
       case 'session_ready':
-        // Reset stale state from previous session
         nextPlayTimeRef.current = 0
         setState(s => ({
           ...s,
@@ -154,7 +151,7 @@ export function useDashboardWs(): DashboardState & { sendQuery: (image: string |
         break
       }
       case 'detection':
-        setState(s => ({ ...s, detection: { label: msg.label, confidence: msg.confidence } }))
+        setState(s => ({ ...s, detection: { label: msg.label, confidence: msg.confidence, box: msg.box } }))
         break
       case 'agent_state':
         setState(s => ({ ...s, agentState: msg.state }))
@@ -194,7 +191,7 @@ export function useDashboardWs(): DashboardState & { sendQuery: (image: string |
         }, 25000)
       }
       ws.onmessage = (e) => {
-        try { onMessage(JSON.parse(e.data) as WsMessage) } catch {}
+        try { onMessage(JSON.parse(e.data) as WsMessage) } catch { }
       }
       ws.onclose = () => {
         clearInterval(pingTimer)
@@ -214,22 +211,16 @@ export function useDashboardWs(): DashboardState & { sendQuery: (image: string |
 
   const sendQuery = useCallback((image: string | null, text: string) => {
     const ws = wsRef.current
-    console.log('[ws] sendQuery called:', { hasImage: !!image, imageLen: image?.length, text, wsReady: ws?.readyState === WebSocket.OPEN })
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'dashboard_query', image, text }))
-      console.log('[ws] dashboard_query sent')
-    } else {
-      console.warn('[ws] sendQuery: WebSocket not open, message not sent')
     }
   }, [])
 
   return { ...state, sendQuery }
 }
 
-
 // ─── PCM audio helpers ───────────────────────────────────────────────────────
 
-/** Convert Float32Array to Int16Array (PCM 16-bit) */
 function float32ToInt16(f32: Float32Array): Int16Array {
   const out = new Int16Array(f32.length)
   for (let i = 0; i < f32.length; i++) {
@@ -239,7 +230,6 @@ function float32ToInt16(f32: Float32Array): Int16Array {
   return out
 }
 
-/** Downsample from source rate to 16kHz by linear interpolation */
 function downsampleTo16k(buffer: Float32Array, fromRate: number): Float32Array {
   if (fromRate === 16000) return buffer
   const ratio = fromRate / 16000
@@ -254,7 +244,6 @@ function downsampleTo16k(buffer: Float32Array, fromRate: number): Float32Array {
   return out
 }
 
-/** Base64-encode a typed array without stack overflow (safe for iOS) */
 function arrayToBase64(arr: Uint8Array): string {
   const CHUNK = 8192
   let result = ''
@@ -264,7 +253,6 @@ function arrayToBase64(arr: Uint8Array): string {
   }
   return btoa(result)
 }
-
 
 // ─── Remote hook ──────────────────────────────────────────────────────────────
 
@@ -300,48 +288,31 @@ export function useRemoteWs(
     }
   }, [])
 
-  // ── Audio: capture mic → raw PCM 16kHz mono → base64 → WebSocket ──────────
-
   const startSpeaking = useCallback(async () => {
     send({ type: 'user_start_speaking' })
     setIsSpeaking(true)
     try {
-      // iOS ignores sampleRate constraint — we'll resample manually
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true },
       })
       audioStreamRef.current = stream
-
-      // Create AudioContext (must happen in user gesture on iOS — this is
-      // called from onTouchStart/onMouseDown so it qualifies)
-      const ctx = new AudioContext()
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
       audioCtxRef.current = ctx
       if (ctx.state === 'suspended') await ctx.resume()
-
       const source = ctx.createMediaStreamSource(stream)
       sourceNodeRef.current = source
-
-      // ScriptProcessorNode to get raw PCM Float32 samples.
-      // 4096 buffer = ~85ms at 48kHz — good balance of latency vs overhead.
       const processor = ctx.createScriptProcessor(4096, 1, 1)
       processorRef.current = processor
-
-      const nativeSampleRate = ctx.sampleRate // 48000 on iOS, varies on desktop
-      console.log(`[audio] native sample rate: ${nativeSampleRate}Hz, will resample to 16000Hz`)
-
+      const nativeSampleRate = ctx.sampleRate
       processor.onaudioprocess = (e) => {
         const input = e.inputBuffer.getChannelData(0)
-        // Downsample to 16kHz
         const resampled = downsampleTo16k(input, nativeSampleRate)
-        // Convert to 16-bit PCM
         const pcm16 = float32ToInt16(resampled)
-        // Encode as base64 (iOS-safe chunked method)
         const b64 = arrayToBase64(new Uint8Array(pcm16.buffer))
         send({ type: 'audio_frame', data: b64 })
       }
-
       source.connect(processor)
-      processor.connect(ctx.destination) // Required for onaudioprocess to fire
+      processor.connect(ctx.destination)
     } catch (e) {
       console.error('[audio] mic access denied:', e)
       setIsSpeaking(false)
@@ -349,29 +320,20 @@ export function useRemoteWs(
   }, [send])
 
   const stopSpeaking = useCallback(() => {
-    // Disconnect audio processing chain
     processorRef.current?.disconnect()
     sourceNodeRef.current?.disconnect()
     processorRef.current = null
     sourceNodeRef.current = null
-
-    // Stop mic tracks
     audioStreamRef.current?.getTracks().forEach(t => t.stop())
     audioStreamRef.current = null
-
-    // Close AudioContext
-    audioCtxRef.current?.close().catch(() => {})
+    audioCtxRef.current?.close().catch(() => { })
     audioCtxRef.current = null
-
     setIsSpeaking(false)
     send({ type: 'user_stop_speaking' })
   }, [send])
 
-  // ── Camera: rear camera → 1fps JPEG 768×768 → base64 → WebSocket ─────────
-
   const startCamera = useCallback(async () => {
     try {
-      // Use 'ideal' constraints — iOS may not support exact 768×768
       let stream: MediaStream
       try {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -379,8 +341,6 @@ export function useRemoteWs(
           audio: false,
         })
       } catch {
-        // Fallback: drop facingMode constraint (use front camera if rear fails)
-        console.warn('[camera] rear camera failed, trying without facingMode')
         stream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 768 }, height: { ideal: 768 } },
           audio: false,
@@ -388,23 +348,18 @@ export function useRemoteWs(
       }
       videoStreamRef.current = stream
       setCameraActive(true)
-
-      // Attach preview to visible <video> element
       const videoEl = document.getElementById(videoElId) as HTMLVideoElement | null
       if (videoEl) {
         videoEl.srcObject = stream
         videoEl.setAttribute('playsinline', 'true')
         videoEl.setAttribute('webkit-playsinline', 'true')
-        await videoEl.play().catch(() => {})
+        await videoEl.play().catch(() => { })
       }
-
-      // Offscreen canvas for frame capture (768×768 square crop)
       const canvas = document.createElement('canvas')
       canvas.width = 768
       canvas.height = 768
       const ctx2d = canvas.getContext('2d')
       captureCanvasRef.current = canvas
-
       const offVid = document.createElement('video')
       offVid.srcObject = stream
       offVid.muted = true
@@ -412,8 +367,6 @@ export function useRemoteWs(
       offVid.setAttribute('playsinline', 'true')
       await offVid.play()
       captureVideoRef.current = offVid
-
-      // Helper: draw current frame to canvas (center-cropped to square)
       const drawFrame = () => {
         if (!ctx2d) return
         const vw = offVid.videoWidth || 768
@@ -423,22 +376,16 @@ export function useRemoteWs(
         const sy = (vh - size) / 2
         ctx2d.drawImage(offVid, sx, sy, size, size, 0, 0, 768, 768)
       }
-
-      // Stream frames at 1fps (low quality, continuous context for Gemini)
       frameTimerRef.current = setInterval(() => {
         if (!ctx2d || wsRef.current?.readyState !== WebSocket.OPEN) return
         drawFrame()
         const b64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1]
         if (b64) send({ type: 'video_frame', data: b64 })
       }, 1000)
-
-      console.log(`[camera] streaming at 1fps, resolution: ${offVid.videoWidth}x${offVid.videoHeight}`)
     } catch (e) {
       console.error('[camera] access denied:', e)
     }
   }, [send, videoElId])
-
-  // ── Capture: high-quality snapshot → Gemini + dashboard ─────────────────────
 
   const captureFrame = useCallback(() => {
     const canvas = captureCanvasRef.current
@@ -446,39 +393,26 @@ export function useRemoteWs(
     if (!canvas || !offVid) return
     const ctx2d = canvas.getContext('2d')
     if (!ctx2d) return
-
-    // Draw current frame at full quality
     const vw = offVid.videoWidth || 768
     const vh = offVid.videoHeight || 768
     const size = Math.min(vw, vh)
     const sx = (vw - size) / 2
     const sy = (vh - size) / 2
     ctx2d.drawImage(offVid, sx, sy, size, size, 0, 0, 768, 768)
-
-    // Higher JPEG quality than the 1fps stream (0.92 vs 0.7)
     const b64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1]
-    if (b64) {
-      send({ type: 'capture_frame', data: b64 })
-      console.log(`[camera] captured high-quality frame (${b64.length} chars)`)
-    }
+    if (b64) send({ type: 'capture_frame', data: b64 })
   }, [send])
-
-  // ── WebSocket lifecycle ────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!sessionId) return
     let mounted = true
     let pingTimer: ReturnType<typeof setInterval>
-
     const ws = new WebSocket(`${WS_URL}/ws/remote?session_id=${sessionId}`)
     wsRef.current = ws
-
     ws.onopen = () => {
       if (!mounted) return
-      console.log(`[remote-ws] connected, session=${sessionId}`)
       setIsConnected(true)
       startCamera()
-      // Heartbeat to keep WS alive through iOS background/proxy timeouts
       pingTimer = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' }))
       }, 25000)
@@ -486,16 +420,14 @@ export function useRemoteWs(
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data)
-        if (msg.type === 'error') console.error('[remote-ws]', msg.message)
-      } catch {}
+        if (msg.type === 'error') console.error('Remote:', msg.message)
+      } catch { }
     }
     ws.onclose = () => {
-      console.log('[remote-ws] disconnected')
       clearInterval(pingTimer)
       if (mounted) setIsConnected(false)
     }
     ws.onerror = () => ws.close()
-
     return () => {
       mounted = false
       clearInterval(pingTimer)
@@ -504,7 +436,7 @@ export function useRemoteWs(
       audioStreamRef.current?.getTracks().forEach(t => t.stop())
       processorRef.current?.disconnect()
       sourceNodeRef.current?.disconnect()
-      audioCtxRef.current?.close().catch(() => {})
+      audioCtxRef.current?.close().catch(() => { })
       ws.close()
     }
   }, [sessionId, startCamera])

@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import { AgentState, ToolCall, SessionSummary } from '@/lib/types'
+import { AgentState, DataCard as DataCardType, ToolCall, SessionSummary } from '@/lib/types'
 import Waveform from './Waveform'
 
 interface IntelligenceBriefProps {
@@ -10,23 +10,38 @@ interface IntelligenceBriefProps {
   toolCalls: ToolCall[]
   transcript: string
   sessionId: string | null
-  remoteUrl: string | null
-  remoteConnected: boolean
+  remoteUrl?: string | null
+  remoteConnected?: boolean
+  onSendQuery?: (text: string) => void
+  hasImage?: boolean
   sessionSummary?: SessionSummary | null
+  cards?: DataCardType[]
 }
 
-const STATE_LABEL: Record<AgentState, string> = {
-  idle: 'SYSTEM_READY',
-  listening: 'LISTENING',
-  processing: 'ANALYZING_GRID',
-  speaking: 'RESPONDING',
+const TOOL_DISPLAY_NAMES: Record<string, string> = {
+  investigate_location: 'ANALYZING',
+  geocode_location: 'GEOCODING',
+  query_restaurant_inspections: 'HEALTH INSPECTIONS',
+  query_311_complaints: '311 COMPLAINTS',
+  query_nypd_incidents: 'NYPD DATA',
+  query_hpd_violations: 'HPD VIOLATIONS',
+  query_dob_permits: 'DOB PERMITS',
+  query_subway_entrances: 'SUBWAY DATA',
+  query_evictions: 'EVICTIONS',
 }
 
 const STATE_COLOR: Record<AgentState, string> = {
-  idle: '#ffffff30',
-  listening: '#84cc16',
-  processing: '#f59e0b',
-  speaking: '#3b82f6',
+  idle: 'text-white/20',
+  listening: 'text-cyan-400',
+  processing: 'text-amber-400',
+  speaking: 'text-health',
+}
+
+const STATE_LABEL: Record<AgentState, string> = {
+  idle: 'IDLE_SYNC',
+  listening: 'LISTENING',
+  processing: 'THINKING',
+  speaking: 'RESPONDING',
 }
 
 function QrBridge({ url, sessionId }: { url: string; sessionId: string | null }) {
@@ -76,6 +91,7 @@ export default function IntelligenceBrief({
   remoteUrl,
   remoteConnected,
   sessionSummary,
+  cards = [],
 }: IntelligenceBriefProps) {
   const stateColor = STATE_COLOR[agentState]
   const stateLabel = STATE_LABEL[agentState]
@@ -85,66 +101,88 @@ export default function IntelligenceBrief({
     : null
 
   return (
-    <div className="w-[320px] h-screen glass border-l-0 flex flex-col z-50 font-mono">
+    <div className="w-[380px] h-screen glass border-l border-white/10 flex flex-col z-[100] font-sans p-8 overflow-y-auto scrollbar-none bg-[#07111D]/90 backdrop-blur-3xl shadow-[-20px_0_50px_rgba(0,0,0,0.8)]">
 
-      {/* Header */}
-      <div className="px-6 py-8 border-b border-white/5">
-        <div className="flex items-center gap-2 mb-4">
-          <div
-            className="w-1.5 h-1.5 rounded-full status-pulse"
-            style={{ background: stateColor, boxShadow: `0 0 8px ${stateColor}` }}
-          />
-          <span className="text-[10px] font-bold tracking-[0.3em] text-white/40 uppercase">
-            {stateLabel}
-          </span>
-        </div>
-        <h2 className="text-xl font-bold tracking-tight font-syne text-white mb-1 uppercase italic">
-          AI ANALYSIS & RESPONSE
-        </h2>
-        <div className="flex items-center justify-between">
-          <p className="text-[9px] font-bold tracking-[0.1em] text-white/20">AGENT_ANTIGRAVITY v4.0.2</p>
-          <div className={`w-2 h-2 rounded-full ${remoteConnected ? 'bg-amber-500 shadow-[0_0_8px_#f59e0b]' : 'bg-white/10'}`} />
-        </div>
-      </div>
+      {/* Header Section */}
+      <h1 className="text-[20px] font-bold text-white mb-1 tracking-tight uppercase">
+        AI Analysis & Response
+      </h1>
+      <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] mb-8">
+        AGENT_ANTIGRAVITY v4.0.2
+      </p>
 
-      {/* Waveform & Transcript */}
-      <div className="flex-1 overflow-y-auto scrollbar-none px-6 py-8 border-b border-white/5 bg-white/[0.02]">
+      {/* Waveform / State */}
+      <div className="mb-10 p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
         <Waveform state={agentState} />
-        <div className="mt-6 min-h-[50px]">
-          {transcript ? (
-            <p className="text-[11px] leading-relaxed font-medium text-white/90 italic">
-              &ldquo;{transcript}&rdquo;
-            </p>
-          ) : (
-            <p className="text-[10px] tracking-wide text-white/20 uppercase">
-              {agentState === 'idle' ? 'Awaiting grid commands...' : 'Processing telemetry...'}
-            </p>
-          )}
+        <div className="mt-6 min-h-[40px]">
+          <p className="text-[12px] leading-relaxed font-medium text-white/90 italic">
+            {transcript ? `"${transcript}"` : (
+              <span className="text-white/20 uppercase tracking-widest text-[9px]">
+                {agentState === 'idle' ? 'Awaiting grid commands...' : 'Processing telemetry...'}
+              </span>
+            )}
+          </p>
         </div>
       </div>
 
-      {/* Tool Progress */}
+      {/* Tool Execution Stream */}
       {toolCalls.length > 0 && (
-        <div className="px-6 py-4 border-b border-white/5 overflow-hidden bg-white/[0.01]">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[9px] font-bold tracking-[0.2em] text-white/30 uppercase">Active Subprocesses</span>
-            <span className="text-[9px] font-bold text-[#15BFD2]">{toolCalls.filter(t => t.status === 'complete').length}/{toolCalls.length}</span>
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Active Subprocesses</h2>
+            <span className="text-[9px] font-mono text-cyan-400">{toolCalls.filter(t => t.status === 'complete').length}/{toolCalls.length}</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {toolCalls.map((tc) => (
               <div
                 key={tc.tool}
-                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-[8px] font-bold tracking-widest transition-all
-                  ${tc.status === 'complete' ? 'bg-health/10 border-health/20 text-health'
-                    : tc.status === 'error' ? 'bg-safety/10 border-safety/20 text-safety'
-                      : 'bg-white/5 border-white/10 text-white/20 animate-pulse'}`}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[9px] font-bold tracking-widest transition-all duration-300
+                  ${tc.status === 'complete' ? 'bg-cyan-400/10 border-cyan-400/20 text-cyan-400'
+                    : tc.status === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-500'
+                      : 'bg-white/5 border-white/10 text-white/40 animate-pulse'}`}
               >
-                {tc.tool.replace('query_', '').replace('_', ' ').toUpperCase()}
+                {tc.status !== 'complete' && <div className="w-1 h-1 rounded-full bg-current animate-ping" />}
+                {TOOL_DISPLAY_NAMES[tc.tool] || tc.tool.replace('query_', '').replace('_', ' ').toUpperCase()}
+                {tc.status === 'complete' && <span className="ml-1 opacity-60">✓</span>}
               </div>
             ))}
           </div>
         </div>
       )}
+
+      {/* Findings Section */}
+      <div className="mb-8">
+        <h2 className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-6">
+          Intelligence Briefing
+        </h2>
+
+        {cards.length === 0 ? (
+          <div className="py-12 flex flex-col items-center justify-center opacity-10">
+            <div className="w-8 h-8 rounded-full border border-white border-dashed animate-spin-slow mb-4" />
+            <p className="text-[9px] font-bold tracking-widest">NO_DATA_STREAM</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {cards.map((card, i) => (
+              <div key={i} className="group relative">
+                <div className="absolute -left-4 top-4 bottom-0 w-[1px] bg-white/5 group-last:bg-transparent" />
+                <div className="absolute -left-6 top-4 w-4 h-[1px] bg-white/5" />
+
+                <p className="text-[13px] leading-relaxed text-white/70 pl-2">
+                  <span className="font-bold text-white italic">{card.badge_label}: </span>
+                  {card.title}. {card.detail}
+                  <br />
+                  {card.source_url && (
+                    <span className="text-cyan-400/60 text-[10px] underline cursor-pointer hover:text-cyan-400 transition-colors mt-1 inline-block">
+                      {card.source_url}
+                    </span>
+                  )}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Footer */}
       <div className="mt-auto p-6 bg-white/[0.02] border-t border-white/5 space-y-6">
@@ -182,9 +220,20 @@ export default function IntelligenceBrief({
               <div className="w-1.5 h-1.5 rounded-full bg-health animate-pulse shadow-[0_0_8px_#84cc16]" />
               <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Mobile_Node Active</p>
             </div>
-            <button className="text-[9px] font-bold text-white/10 hover:text-safety transition-colors">SHUTDOWN</button>
+            <button className="text-[9px] font-bold text-white/10 hover:text-red-400 transition-colors">SHUTDOWN</button>
           </div>
         )}
+
+        {/* Real-time State */}
+        <div className="pt-4 border-t border-white/5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#22d3ee]" />
+            <span className="text-[9px] font-bold text-white/20 uppercase tracking-[0.3em]">
+              GRID_LINK_ENCRYPTED
+            </span>
+          </div>
+          <span className="text-[8px] font-mono text-white/10 uppercase font-black">NODE_ASKNYC_V2</span>
+        </div>
       </div>
     </div>
   )

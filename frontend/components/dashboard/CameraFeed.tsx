@@ -1,10 +1,13 @@
 'use client'
 
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useMemo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { AgentState } from '@/lib/types'
 
 interface Detection {
   label: string
   confidence: number
+  box?: number[] // [ymin, xmin, ymax, xmax] 0-1000
 }
 
 interface CameraFeedProps {
@@ -14,29 +17,39 @@ interface CameraFeedProps {
   onImageUpload: (base64: string) => void
   onImageClear: () => void
   mapCenter?: { lat: number; lng: number } | null
+  agentState: AgentState
 }
 
-export default function CameraFeed({ detection, remoteConnected, uploadedImage, onImageUpload, onImageClear, mapCenter }: CameraFeedProps) {
-  const scanRef = useRef<HTMLDivElement>(null)
+export default function CameraFeed({
+  detection,
+  remoteConnected,
+  uploadedImage,
+  onImageUpload,
+  onImageClear,
+  mapCenter,
+  agentState
+}: CameraFeedProps) {
   const [scanPos, setScanPos] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Analysis states
+  const isAnalyzing = agentState === 'processing'
+  const isComplete = agentState === 'speaking' || (agentState === 'idle' && uploadedImage)
 
   // Scan line animation
   useEffect(() => {
     let raf: number
     const animate = () => {
-      setScanPos(p => (p + 0.25) % 100)
+      setScanPos(p => (p + (isAnalyzing ? 1.2 : 0.25)) % 100)
       raf = requestAnimationFrame(animate)
     }
     raf = requestAnimationFrame(animate)
     return () => cancelAnimationFrame(raf)
-  }, [])
+  }, [isAnalyzing])
 
   const handleFile = (file: File) => {
     if (!file.type.startsWith('image/')) return
-
-    // Resize to 768x768 JPEG to match remote camera format
     const img = new Image()
     img.onload = () => {
       const canvas = document.createElement('canvas')
@@ -45,13 +58,10 @@ export default function CameraFeed({ detection, remoteConnected, uploadedImage, 
       canvas.height = size
       const ctx = canvas.getContext('2d')
       if (!ctx) return
-
-      // Center crop to square
       const scale = Math.max(size / img.width, size / img.height)
       const w = img.width * scale
       const h = img.height * scale
       ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h)
-
       const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
       const base64 = dataUrl.split(',')[1]
       if (base64) onImageUpload(base64)
@@ -59,169 +69,184 @@ export default function CameraFeed({ detection, remoteConnected, uploadedImage, 
     img.src = URL.createObjectURL(file)
   }
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(false)
-    const file = e.dataTransfer.files[0]
-    if (file) handleFile(file)
-  }
+  // Typewriter effect for coordinates
+  const [displayText, setDisplayText] = useState('')
+  const targetText = useMemo(() => {
+    if (!mapCenter) return 'DECODING GRID...'
+    return `${mapCenter.lat.toFixed(4)}° N, ${Math.abs(mapCenter.lng).toFixed(4)}° W`
+  }, [mapCenter])
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(true)
-  }
+  useEffect(() => {
+    if (isAnalyzing) {
+      let i = 0
+      setDisplayText('')
+      const interval = setInterval(() => {
+        setDisplayText(targetText.slice(0, i))
+        i++
+        if (i > targetText.length) clearInterval(interval)
+      }, 50)
+      return () => clearInterval(interval)
+    } else if (!uploadedImage) {
+      setDisplayText('')
+    } else {
+      setDisplayText(targetText)
+    }
+  }, [isAnalyzing, targetText, uploadedImage])
 
-  const handleDragLeave = () => setIsDragging(false)
+  const [currentTime, setCurrentTime] = useState<string | null>(null)
+  useEffect(() => {
+    setCurrentTime(new Date().toLocaleTimeString())
+    const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   return (
     <div
-      className="flex-1 relative overflow-hidden"
-      style={{ background: '#0a0608' }}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
+      className="flex h-[320px] relative overflow-hidden bg-[#07111D] transition-all duration-500"
+      style={{ width: uploadedImage ? '1000px' : '480px' }}
+      onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFile(e.dataTransfer.files[0]) }}
+      onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+      onDragLeave={() => setIsDragging(false)}
     >
-      {/* Uploaded image display */}
-      {uploadedImage && (
-        <div className="absolute inset-0 z-5">
-          <img
-            src={`data:image/jpeg;base64,${uploadedImage}`}
-            alt="Uploaded location"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-black/20" />
-          <button
-            onClick={onImageClear}
-            className="absolute top-3 right-3 z-30 bg-black/70 border border-white/20 text-white/80 font-mono text-[9px] tracking-wider px-2 py-1 rounded hover:bg-red/80 hover:border-red transition-colors"
-          >
-            CLEAR
-          </button>
-        </div>
-      )}
+      {/* Left Plate: Image Analysis */}
+      <motion.div
+        animate={{ width: isAnalyzing || isComplete ? '50%' : '100%' }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="relative h-full border-r border-white/5 overflow-hidden flex-shrink-0"
+      >
+        <AnimatePresence>
+          {uploadedImage ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0"
+            >
+              <img
+                src={`data:image/jpeg;base64,${uploadedImage}`}
+                alt="Source"
+                className="w-full h-full object-cover grayscale-[0.3] brightness-75"
+              />
+              <div className="absolute inset-0 bg-cyan-900/10 mix-blend-overlay" />
 
-      {/* Atmosphere layers (dimmed when image present) */}
-      {!uploadedImage && (
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute inset-0" style={{
-            background: `
-              radial-gradient(ellipse at 30% 40%, rgba(180,60,20,0.22) 0%, transparent 55%),
-              radial-gradient(ellipse at 72% 28%, rgba(200,140,40,0.12) 0%, transparent 45%),
-              radial-gradient(ellipse at 50% 85%, rgba(20,30,60,0.35) 0%, transparent 50%)
-            `
-          }}/>
-        </div>
-      )}
+              {/* Scanline intensity */}
+              <div
+                className="absolute left-0 right-0 pointer-events-none z-10"
+                style={{
+                  top: `${scanPos}%`,
+                  height: '1px',
+                  background: 'linear-gradient(90deg, transparent, #41E4F4, transparent)',
+                  boxShadow: '0 0 10px #41E4F4',
+                }}
+              />
 
-      {/* Building silhouettes */}
-      {!uploadedImage && (
-        <div className="absolute bottom-8 left-0 right-0 flex items-end gap-0.5 px-3 opacity-50 pointer-events-none">
-          {[90,120,70,145,100,65,115,88,95,132,78,155,82,105,118,90,60,128].map((h, i) => (
-            <div
-              key={i}
-              className="flex-shrink-0"
-              style={{
-                width: `${[18,24,14,30,20,12,28,22,16,26,18,32,14,20,24,18,10,28][i]}px`,
-                height: `${h}px`,
-                background: 'linear-gradient(180deg, rgba(50,30,20,0.8), rgba(20,12,8,0.9))',
-                borderTop: '1px solid rgba(200,100,40,0.12)',
-              }}
-            />
-          ))}
-        </div>
-      )}
+              {/* Analytical Brackets */}
+              {isAnalyzing && !detection && (
+                <div className="absolute inset-8 border border-cyan-400/20 pointer-events-none">
+                  <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-cyan-400" />
+                  <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-cyan-400" />
+                  <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-cyan-400" />
+                  <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-cyan-400" />
+                </div>
+              )}
 
-      {/* Neon glows */}
-      {!uploadedImage && (
-        <>
-          <div className="absolute pointer-events-none" style={{ top: '35%', left: '15%', width: 80, height: 18, background: 'rgba(200,80,20,0.28)', borderRadius: 2, boxShadow: '0 0 24px rgba(200,80,20,0.35), 0 0 48px rgba(200,80,20,0.15)' }}/>
-          <div className="absolute pointer-events-none" style={{ top: '38%', left: '52%', width: 60, height: 14, background: 'rgba(20,120,200,0.2)', borderRadius: 2, boxShadow: '0 0 16px rgba(20,120,200,0.25)' }}/>
-        </>
-      )}
+              {/* Real Detection Overlay */}
+              {detection && detection.box && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="absolute border-2 border-cyan-400 z-20 pointer-events-none"
+                  style={{
+                    top: `${detection.box[0] / 10}%`,
+                    left: `${detection.box[1] / 10}%`,
+                    height: `${(detection.box[2] - detection.box[0]) / 10}%`,
+                    width: `${(detection.box[3] - detection.box[1]) / 10}%`,
+                  }}
+                >
+                  <div className="absolute -top-6 left-0 bg-cyan-400 text-black text-[10px] font-bold px-2 py-0.5 whitespace-nowrap uppercase tracking-wider">
+                    {detection.label} {Math.round(detection.confidence * 100)}%
+                  </div>
+                  {/* Corner Accents */}
+                  <div className="absolute -top-1 -left-1 w-2 h-2 border-t-2 border-l-2 border-cyan-200" />
+                  <div className="absolute -top-1 -right-1 w-2 h-2 border-t-2 border-r-2 border-cyan-200" />
+                  <div className="absolute -bottom-1 -left-1 w-2 h-2 border-b-2 border-l-2 border-cyan-200" />
+                  <div className="absolute -bottom-1 -right-1 w-2 h-2 border-b-2 border-r-2 border-cyan-200" />
+                </motion.div>
+              )}
 
-      {/* Bottom fade */}
-      {!uploadedImage && (
-        <div className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none" style={{ background: 'linear-gradient(transparent, rgba(200,80,20,0.06))' }}/>
-      )}
-
-      {/* Scan line */}
-      <div
-        className="absolute left-0 right-0 pointer-events-none z-10"
-        style={{
-          top: `${scanPos}%`,
-          height: '1.5px',
-          background: 'linear-gradient(90deg, transparent 0%, rgba(132,204,22,0.6) 30%, rgba(132,204,22,0.9) 50%, rgba(132,204,22,0.6) 70%, transparent 100%)',
-          boxShadow: '0 0 8px rgba(132,204,22,0.35)',
-        }}
-      />
-
-      {/* GPS + Live badge */}
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
-        <div className="font-mono text-[9px] tracking-[0.08em] text-white/70 bg-black/70 border border-white/[0.08] px-2 py-0.5 rounded-[3px]">
-          {mapCenter ? `${mapCenter.lat.toFixed(4)}° N, ${Math.abs(mapCenter.lng).toFixed(4)}° W` : 'AWAITING LOCATION'}
-        </div>
-        <div className="font-mono text-[8px] tracking-[0.15em] text-white bg-red px-2 py-0.5 rounded-[3px] live-badge">
-          {remoteConnected ? 'LIVE FEED' : uploadedImage ? 'UPLOADED' : 'NO REMOTE'}
-        </div>
-      </div>
-
-      {/* Detection box */}
-      {detection && (
-        <div
-          className="absolute detection-box z-20"
-          style={{
-            top: '22%',
-            left: '28%',
-            width: 140,
-            height: 110,
-            border: '2px solid #84cc16',
-          }}
-        >
-          {[
-            'top-[-2px] left-[-2px] border-t-2 border-l-2',
-            'top-[-2px] right-[-2px] border-t-2 border-r-2',
-            'bottom-[-2px] left-[-2px] border-b-2 border-l-2',
-            'bottom-[-2px] right-[-2px] border-b-2 border-r-2',
-          ].map((cls, i) => (
-            <div key={i} className={`absolute w-2.5 h-2.5 border-green ${cls}`} />
-          ))}
-          <div className="absolute -top-[26px] left-[-1px] bg-green text-black font-mono font-medium text-[8px] tracking-[0.1em] px-2 py-0.5 whitespace-nowrap">
-            IDENTIFIED: {detection.label.toUpperCase()}
-          </div>
-        </div>
-      )}
-
-      {/* Hidden file input — always mounted */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const files = e.target.files
-          if (files && files.length > 0) {
-            handleFile(files[0])
-          }
-          e.target.value = ''
-        }}
-      />
-
-      {/* Drop zone / upload prompt */}
-      {!remoteConnected && !uploadedImage && (
-        <div
-          className={`absolute inset-0 flex flex-col items-center justify-center z-30 cursor-pointer transition-colors ${isDragging ? 'bg-green/10' : ''}`}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          {isDragging ? (
-            <div className="font-mono text-[13px] tracking-[0.15em] text-green font-medium">DROP IMAGE HERE</div>
+              <button
+                onClick={onImageClear}
+                className="absolute top-3 right-3 z-30 px-2 py-1 bg-black/50 hover:bg-red-500/80 text-white/40 text-[8px] font-bold rounded border border-white/10 transition-all uppercase tracking-widest"
+              >
+                Clear
+              </button>
+            </motion.div>
           ) : (
-            <div className="flex flex-col items-center gap-3 p-6 rounded-lg border border-dashed border-white/20 bg-black/40 backdrop-blur-sm">
-              <div className="w-10 h-10 rounded-full border border-green/40 flex items-center justify-center text-green text-xl">+</div>
-              <div className="font-mono text-[10px] tracking-[0.12em] text-white/70">DROP AN IMAGE OR CLICK TO UPLOAD</div>
-              <div className="font-mono text-[8px] tracking-[0.1em] text-white/40">Street view, storefront, building photo</div>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="w-12 h-12 rounded-full border border-dashed border-white/10 flex items-center justify-center text-white/20 text-xl font-light">+</div>
+              <p className="mt-4 text-[9px] font-bold tracking-[0.2em] text-white/20 uppercase">Awaiting Visual Input</p>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute inset-0 w-full h-full cursor-pointer"
+              />
+              <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => handleFile(e.target.files![0])} />
             </div>
           )}
+        </AnimatePresence>
+      </motion.div>
+
+      {/* Right Plate: Data/Coordinates (Appears on query) */}
+      <motion.div
+        initial={{ width: 0, opacity: 0 }}
+        animate={{
+          width: isAnalyzing || isComplete ? '50%' : '0%',
+          opacity: isAnalyzing || isComplete ? 1 : 0
+        }}
+        className="relative h-full bg-[#0B1D31]/40 flex flex-col p-6"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-[9px] font-bold text-cyan-400 tracking-[.3em] uppercase">Geo_Sync</span>
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-1 rounded-full bg-cyan-400 animate-ping" />
+            <span className="text-[8px] font-mono text-cyan-400/40">LINK_STABLE</span>
+          </div>
         </div>
-      )}
+
+        <div className="flex-1 flex flex-col justify-center">
+          <h4 className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1">Decoded Coordinates</h4>
+          <p className="text-[18px] font-black text-white tracking-widest font-mono">
+            {displayText}<span className="animate-pulse">_</span>
+          </p>
+
+          <div className="mt-8 space-y-4">
+            <div className="h-1 flex gap-1">
+              {[...Array(20)].map((_, i) => (
+                <div key={i} className={`flex-1 h-full rounded-full ${i < 12 ? 'bg-cyan-400/60' : 'bg-white/5'}`} />
+              ))}
+            </div>
+            <p className="text-[8px] text-white/30 uppercase tracking-[0.2em] font-bold leading-relaxed">
+              Source: Satellite Telemetry // Ground-truth confirmed
+              <br />
+              Entity: MANHATTAN_GRID_SECTOR_07
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-auto flex items-center justify-between opacity-30">
+          <span className="text-[8px] font-mono">NODE_774.2_SYNC</span>
+          <span className="text-[8px] font-mono">{currentTime}</span>
+        </div>
+      </motion.div>
+
+      {/* Top Badge: System Status */}
+      <div className="absolute top-4 left-4 z-40 bg-black/60 px-2 py-1 rounded border border-white/5 backdrop-blur-md">
+        <div className="flex items-center gap-2">
+          <div className={`w-1 h-1 rounded-full ${isAnalyzing ? 'bg-amber-500 shadow-[0_0_8px_#f59e0b]' : 'bg-cyan-400'} animate-pulse`} />
+          <span className="text-[8px] font-bold tracking-[0.15em] text-white/60">
+            {isAnalyzing ? 'ANALYZING...' : isComplete ? 'SOURCE_LOCKED' : 'SYSTEM_IDLE'}
+          </span>
+        </div>
+      </div>
     </div>
   )
 }

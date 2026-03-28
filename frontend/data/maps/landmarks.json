@@ -70,5 +70,77 @@
             "emissiveIntensity": 1.2
         },
         "priority": 8
+    },
+    {
+        "id": "burj_khalifa",
+        "name": "Burj Khalifa",
+        "coords": {
+            "lat": 25.1972,
+            "lng": 55.2744
+        },
+        "category": "iconic_landmark",
+        "visual_preset": "GOLD_HERO",
+        "glow_config": {
+            "color": "#F2B35B",
+            "beamHeight": 1200,
+            "pulseFreq": 1.5,
+            "shellRadius": 60,
+            "emissiveIntensity": 3.5
+        },
+        "priority": 10
+    },
+    {
+        "id": "eiffel_tower",
+        "name": "Eiffel Tower",
+        "coords": {
+            "lat": 48.8584,
+            "lng": 2.2945
+        },
+        "category": "iconic_landmark",
+        "visual_preset": "GOLD_HERO",
+        "glow_config": {
+            "color": "#F2B35B",
+            "beamHeight": 600,
+            "pulseFreq": 1.0,
+            "shellRadius": 40,
+            "emissiveIntensity": 2.2
+        },
+        "priority": 10
+    },
+    {
+        "id": "taj_mahal",
+        "name": "Taj Mahal",
+        "coords": {
+            "lat": 27.1751,
+            "lng": 78.0421
+        },
+        "category": "iconic_landmark",
+        "visual_preset": "WHITE_GLOW",
+        "glow_config": {
+            "color": "#FFFFFF",
+            "beamHeight": 300,
+            "pulseFreq": 0.5,
+            "shellRadius": 50,
+            "emissiveIntensity": 2.0
+        },
+        "priority": 10
+    },
+    {
+        "id": "red_fort",
+        "name": "Red Fort",
+        "coords": {
+            "lat": 28.6562,
+            "lng": 77.2410
+        },
+        "category": "iconic_landmark",
+        "visual_preset": "RED_GLOW",
+        "glow_config": {
+            "color": "#EF4444",
+            "beamHeight": 200,
+            "pulseFreq": 0.7,
+            "shellRadius": 80,
+            "emissiveIntensity": 1.8
+        },
+        "priority": 9
     }
 ]

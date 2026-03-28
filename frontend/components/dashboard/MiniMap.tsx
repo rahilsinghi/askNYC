@@ -31,10 +31,11 @@ const LEGEND = [
 
 export default function MiniMap({ pins, centerLat, centerLng }: MiniMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<unknown>(null)
-  const markersRef = useRef<Map<string, unknown>>(new Map())
+  const mapRef = useRef<any>(null)
+  const markersRef = useRef<Map<string, any>>(new Map())
   const landmarkRootsRef = useRef<Map<string, { unmount: () => void }>>(new Map())
   const [mapLoaded, setMapLoaded] = useState(false)
+  const [styleLoaded, setStyleLoaded] = useState(false)
 
   // Initialize map
   useEffect(() => {
@@ -62,6 +63,7 @@ export default function MiniMap({ pins, centerLat, centerLng }: MiniMapProps) {
 
       map.on('style.load', () => {
         if (destroyed) return
+        setStyleLoaded(true)
 
         // 3D buildings
         if (!map.getLayer('3d-buildings')) {
@@ -73,7 +75,7 @@ export default function MiniMap({ pins, centerLat, centerLng }: MiniMapProps) {
             type: 'fill-extrusion',
             minzoom: 13,
             paint: {
-              'fill-extrusion-color': '#0D1B2A',
+              'fill-extrusion-color': '#050B14',
               'fill-extrusion-height': ['get', 'height'],
               'fill-extrusion-base': ['get', 'min_height'],
               'fill-extrusion-opacity': 0.8,
@@ -82,11 +84,64 @@ export default function MiniMap({ pins, centerLat, centerLng }: MiniMapProps) {
           })
         }
 
+        // ─── Landmark: Empire State Building (Gold Glow) ───────────────────────
+        if (!map.getSource('landmark-esb')) {
+          map.addSource('landmark-esb', {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: [-73.9857, 40.7484] },
+              properties: { height: 443, name: 'Empire State Building' }
+            }
+          })
+
+          map.addLayer({
+            id: 'esb-pillar',
+            type: 'fill-extrusion',
+            source: 'composite',
+            'source-layer': 'building',
+            filter: ['in', 'id', 23646540, 162985390, 23646537],
+            paint: {
+              'fill-extrusion-color': '#F2B35B',
+              'fill-extrusion-height': ['get', 'height'],
+              'fill-extrusion-opacity': 0.95,
+              'fill-extrusion-vertical-gradient': true
+            }
+          })
+        }
+
+        // ─── Landmark: One World Trade Center (Cyan Glow) ─────────────────────
+        if (!map.getSource('landmark-wtc')) {
+          map.addSource('landmark-wtc', {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: [-74.0134, 40.7127] },
+              properties: { height: 541, name: 'WTC' }
+            }
+          })
+
+          map.addLayer({
+            id: 'wtc-pillar',
+            type: 'fill-extrusion',
+            source: 'composite',
+            'source-layer': 'building',
+            filter: ['in', 'id', 23646538, 162985388, 23646549, 142171454],
+            paint: {
+              'fill-extrusion-color': '#41E4F4',
+              'fill-extrusion-height': ['get', 'height'],
+              'fill-extrusion-opacity': 0.95,
+              'fill-extrusion-vertical-gradient': true
+            }
+          })
+        }
+
         map.setFog({
-          range: [0.5, 7],
+          range: [0.5, 10],
           color: '#07111D',
-          'high-color': '#0B1D31',
-          'space-color': '#000005',
+          'horizon-blend': 0.1,
+          'high-color': '#000000',
+          'space-color': '#000000',
           'star-intensity': 0.9,
         })
       })
@@ -95,39 +150,48 @@ export default function MiniMap({ pins, centerLat, centerLng }: MiniMapProps) {
         if (destroyed) return
         mapRef.current = map
         setMapLoaded(true)
-
-        // Add landmark markers
         addLandmarkMarkers(map, mapboxgl)
       })
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const addLandmarkMarkers = async (map: any, mapboxgl: any) => {
       const { createRoot } = await import('react-dom/client')
       const { default: MapEvidenceCard } = await import('./MapEvidenceCard')
 
-      LANDMARK_REGISTRY.forEach(landmark => {
-        if (markersRef.current.has(landmark.id)) return
+      // Evidence Card Stack Logic
+      const EVIDENCE_STACK = [
+        { id: 'Card 1', title: 'Blue Note Jazz Club', rating: '4.8', lat: 40.7308, lng: -73.9973, color: 'gold' as const },
+        { id: 'Card 2', title: 'Smalls Jazz Club', rating: '4.7', lat: 40.7308, lng: -73.9973, color: 'gold' as const },
+        { id: 'Card 3', title: 'Django', rating: '4.6', lat: 40.7308, lng: -73.9973, color: 'gold' as const }
+      ]
+
+      EVIDENCE_STACK.forEach((card, i) => {
+        const markerKey = `evidence-${card.id}`;
+        if (markersRef.current.has(markerKey)) return
 
         const el = document.createElement('div')
+        el.className = 'evidence-marker-container'
         const root = createRoot(el)
         root.render(
           <MapEvidenceCard
-            id={landmark.id}
-            title={landmark.title}
-            subtitle={landmark.subtitle}
-            rating={landmark.rating}
-            status="active"
-            position={{ x: 0, y: 0 }}
-            color={landmark.color}
+            id={card.id}
+            title={card.title}
+            rating={card.rating}
+            stackIndex={i}
+            color={card.color}
           />
         )
 
-        const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom-left', offset: [20, -20] })
-          .setLngLat([landmark.lng, landmark.lat])
+        const marker = new mapboxgl.Marker({
+          element: el,
+          anchor: 'bottom-left',
+          offset: [20, -20]
+        })
+          .setLngLat([card.lng, card.lat])
           .addTo(map)
-        markersRef.current.set(landmark.id, marker)
-        landmarkRootsRef.current.set(landmark.id, root)
+
+        markersRef.current.set(markerKey, marker)
+        landmarkRootsRef.current.set(markerKey, root)
       })
     }
 
@@ -135,36 +199,32 @@ export default function MiniMap({ pins, centerLat, centerLng }: MiniMapProps) {
 
     return () => {
       destroyed = true
-      // Defer React root unmounts to avoid unmounting during a render cycle
       const roots = Array.from(landmarkRootsRef.current.values())
       landmarkRootsRef.current.clear()
       setTimeout(() => roots.forEach(root => root.unmount()), 0)
-      // Clean up markers
-      markersRef.current.forEach(marker => (marker as { remove: () => void }).remove())
+      markersRef.current.forEach(marker => marker.remove())
       markersRef.current.clear()
-      // Clean up map
       if (mapRef.current) {
-        (mapRef.current as { remove: () => void }).remove()
+        mapRef.current.remove()
         mapRef.current = null
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Sync backend pins to markers
+  // Sync backend pins
   useEffect(() => {
     if (!mapRef.current || !mapLoaded) return
 
-    const initPins = async () => {
+    const syncPins = async () => {
       const mapboxgl = (await import('mapbox-gl')).default
-      const map = mapRef.current as InstanceType<typeof mapboxgl.Map>
+      const map = mapRef.current
       const existing = markersRef.current
       const currentIds = new Set(pins.map(p => p.id))
 
-      // Remove markers no longer in pins (skip landmarks)
+      // Clean up old pins
       existing.forEach((marker, id) => {
-        if (!currentIds.has(id) && !LANDMARK_REGISTRY.some(l => l.id === id)) {
-          (marker as { remove: () => void }).remove()
+        if (!id.startsWith('evidence-') && !currentIds.has(id)) {
+          marker.remove()
           existing.delete(id)
         }
       })
@@ -172,26 +232,21 @@ export default function MiniMap({ pins, centerLat, centerLng }: MiniMapProps) {
       // Add new pins
       pins.forEach(pin => {
         if (existing.has(pin.id)) return
-
         const color = SOURCE_COLORS[pin.source] || '#84cc16'
         const el = createMarkerEl(color)
-
         const marker = new mapboxgl.Marker({ element: el })
           .setLngLat([pin.lng, pin.lat])
           .addTo(map)
         existing.set(pin.id, marker)
       })
     }
-
-    initPins()
+    syncPins()
   }, [pins, mapLoaded])
 
-  // Fly to explicit center when provided
+  // Fly to center
   useEffect(() => {
     if (!mapRef.current || !mapLoaded || !centerLat || !centerLng) return
-
-    const map = mapRef.current as { flyTo: (opts: Record<string, unknown>) => void }
-    map.flyTo({
+    mapRef.current.flyTo({
       center: [centerLng, centerLat],
       zoom: 14.5,
       duration: 1500,
@@ -199,19 +254,11 @@ export default function MiniMap({ pins, centerLat, centerLng }: MiniMapProps) {
     })
   }, [centerLat, centerLng, mapLoaded])
 
-  // No token — CSS fallback
-  if (!MAPBOX_TOKEN) {
-    return <CssFallbackMap pins={pins} />
-  }
+  if (!MAPBOX_TOKEN) return <CssFallbackMap pins={pins} />
 
   return (
     <div className="absolute inset-0 w-full h-full min-h-screen bg-[#07111D] z-0">
-      <div
-        ref={mapContainer}
-        style={{ width: '100%', height: '100vh', position: 'absolute', top: 0, left: 0 }}
-      />
-
-      {/* Legend */}
+      <div ref={mapContainer} className="w-full h-screen absolute inset-0" />
       <div className="absolute bottom-6 left-6 z-20 flex flex-col gap-1.5 pointer-events-none">
         {LEGEND.map(({ label, color }) => (
           <div key={label} className="flex items-center gap-2">
@@ -227,98 +274,29 @@ export default function MiniMap({ pins, centerLat, centerLng }: MiniMapProps) {
 function createMarkerEl(color: string): HTMLDivElement {
   const wrapper = document.createElement('div')
   wrapper.style.cssText = 'position:relative;width:16px;height:16px;'
-
   const dot = document.createElement('div')
-  dot.style.cssText = `
-    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-    width:8px; height:8px; border-radius:50%;
-    background:${color}; box-shadow:0 0 6px ${color}80;
-  `
+  dot.style.cssText = `position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:8px; height:8px; border-radius:50%; background:${color}; box-shadow:0 0 6px ${color}80;`
   wrapper.appendChild(dot)
-
   const ring = document.createElement('div')
-  ring.style.cssText = `
-    position:absolute; top:50%; left:50%;
-    width:18px; height:18px; border-radius:50%;
-    border:1px solid ${color}60;
-    animation: ringOut 2s ease-out infinite;
-  `
+  ring.style.cssText = `position:absolute; top:50%; left:50%; width:18px; height:18px; border-radius:50%; border:1px solid ${color}60; animation: ringOut 2s ease-out infinite;`
   wrapper.appendChild(ring)
-
-  wrapper.style.transform = 'scale(0)'
-  wrapper.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
-  requestAnimationFrame(() => {
-    wrapper.style.transform = 'scale(1)'
-  })
-
   return wrapper
 }
-
-// ─── CSS Fallback (no Mapbox token) ──────────────────────────────────────────
 
 function CssFallbackMap({ pins }: { pins: MapPin[] }) {
   return (
     <div className="absolute inset-0 w-full h-full min-h-screen bg-[#07111D] z-0">
-      <div className="absolute inset-0 pointer-events-none" style={{
-        backgroundImage: `
-          linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)
-        `,
-        backgroundSize: '30px 30px',
-      }}/>
-
-      <div className="absolute inset-y-0 left-1/2 w-px bg-white/[0.03] pointer-events-none"/>
-      <div className="absolute inset-x-0 top-1/2 h-px bg-white/[0.03] pointer-events-none"/>
-
-      {[120, 60].map((size, i) => (
-        <div
-          key={size}
-          className="absolute rounded-full border border-dashed pointer-events-none"
-          style={{
-            width: size, height: size,
-            top: '50%', left: '50%',
-            transform: 'translate(-50%,-50%)',
-            borderColor: `rgba(132,204,22,${i === 0 ? 0.08 : 0.14})`,
-          }}
-        />
-      ))}
-
-      <div className="absolute" style={{ top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 10 }}>
-        <div className="w-2.5 h-2.5 rounded-full bg-green" style={{ boxShadow: '0 0 8px rgba(132,204,22,0.6)' }}/>
-      </div>
-
+      <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+      <div className="absolute inset-y-0 left-1/2 w-px bg-white/[0.03] pointer-events-none" />
+      <div className="absolute inset-x-0 top-1/2 h-px bg-white/[0.03] pointer-events-none" />
       {pins.map((pin) => {
         const color = SOURCE_COLORS[pin.source] || '#84cc16'
         return (
-          <div
-            key={pin.id}
-            className="absolute"
-            style={{
-              top: `${45 + (pin.lat - 40.73) * 400}%`,
-              left: `${50 + (pin.lng + 73.99) * 400}%`,
-            }}
-          >
-            <div
-              className="rounded-full"
-              style={{ width: 8, height: 8, background: color, boxShadow: `0 0 5px ${color}80` }}
-            />
+          <div key={pin.id} className="absolute" style={{ top: `${45 + (pin.lat - 40.73) * 400}%`, left: `${50 + (pin.lng + 73.99) * 400}%` }}>
+            <div className="rounded-full" style={{ width: 8, height: 8, background: color, boxShadow: `0 0 5px ${color}80` }} />
           </div>
         )
       })}
-
-      <div className="absolute bottom-6 left-6 z-20 flex flex-col gap-1.5 pointer-events-none">
-        {[
-          { label: 'COMPLAINTS', color: '#ef4444' },
-          { label: 'PERMITS', color: '#3b82f6' },
-          { label: 'INSPECTIONS', color: '#84cc16' },
-          { label: 'VIOLATIONS', color: '#f59e0b' },
-        ].map(({ label, color }) => (
-          <div key={label} className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
-            <span className="text-[9px] tracking-[0.2em] font-bold text-white/40 uppercase font-mono">{label}</span>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }

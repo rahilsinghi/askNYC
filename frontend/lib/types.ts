@@ -30,7 +30,7 @@ export type WsMessage =
   | { type: 'tool_call'; tool: string; status: 'pending' | 'complete' | 'error'; result_count?: number }
   | { type: 'data_card'; card: DataCard }
   | { type: 'map_event'; event: 'pin' | 'zoom' | 'circle' | 'clear'; lat: number; lng: number; source: string; label?: string }
-  | { type: 'detection'; label: string; confidence: number }
+  | { type: 'detection'; label: string; confidence: number; box?: number[] }
   | { type: 'agent_state'; state: AgentState }
   | { type: 'session_complete'; session: SessionSummary }
   | { type: 'captured_image'; data: string }
@@ -97,12 +97,12 @@ export const SOURCE_COLORS: Record<string, string> = {
 }
 
 export const BADGE_STYLES: Record<DataCategory, { bg: string; text: string }> = {
-  health:     { bg: 'rgba(132,204,22,0.12)',  text: '#84cc16' },
-  safety:     { bg: 'rgba(59,130,246,0.12)',  text: '#3b82f6' },
-  permits:    { bg: 'rgba(59,130,246,0.12)',  text: '#3b82f6' },
-  complaints: { bg: 'rgba(245,158,11,0.12)',  text: '#f59e0b' },
-  violations: { bg: 'rgba(245,158,11,0.12)',  text: '#f59e0b' },
-  nypd:       { bg: 'rgba(239,68,68,0.12)',   text: '#ef4444' },
-  evictions:  { bg: 'rgba(168,85,247,0.12)',  text: '#a855f7' },
-  transit:    { bg: 'rgba(6,182,212,0.12)',   text: '#06b6d4' },
+  health: { bg: 'rgba(132,204,22,0.12)', text: '#84cc16' },
+  safety: { bg: 'rgba(59,130,246,0.12)', text: '#3b82f6' },
+  permits: { bg: 'rgba(59,130,246,0.12)', text: '#3b82f6' },
+  complaints: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b' },
+  violations: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b' },
+  nypd: { bg: 'rgba(239,68,68,0.12)', text: '#ef4444' },
+  evictions: { bg: 'rgba(168,85,247,0.12)', text: '#a855f7' },
+  transit: { bg: 'rgba(6,182,212,0.12)', text: '#06b6d4' },
 }

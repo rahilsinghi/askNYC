@@ -20,6 +20,7 @@
 
   --color-cyan-glow: #15BFD2;
   --color-electric-cyan: #41E4F4;
+  --color-gold-glow: #F2B35B;
 
   --font-syne: var(--font-syne);
   --font-mono: var(--font-dm-mono);
@@ -27,23 +28,28 @@
 
 @layer base {
   body {
-    @apply bg-bg text-white/90 font-mono antialiased;
+    @apply bg-[#07111D] text-white/90 font-mono antialiased;
     overflow: hidden;
   }
 }
 
 @layer components {
   .glass {
-    @apply bg-slate-950/40 backdrop-blur-2xl border border-white/10;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.82);
+    @apply bg-[#07111D]/60 backdrop-blur-3xl border border-white/5;
+    box-shadow: 0 20px 60px 0 rgba(0, 0, 0, 0.9);
   }
 
   .glass-card {
-    @apply bg-slate-950/50 backdrop-blur-xl border border-white/5 rounded-xl;
+    @apply bg-[#07111D]/70 backdrop-blur-2xl border border-white/10 rounded-2xl;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
   }
 
   .glow-cyan {
-    box-shadow: 0 0 30px rgba(21, 191, 210, 0.3);
+    box-shadow: 0 0 40px rgba(65, 228, 244, 0.2);
+  }
+
+  .glow-gold {
+    box-shadow: 0 0 40px rgba(242, 179, 91, 0.2);
   }
 }
 
