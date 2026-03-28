@@ -1,17 +1,39 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { Settings } from 'lucide-react'
 import Sidebar from '@/components/dashboard/Sidebar'
 import CameraFeed from '@/components/dashboard/CameraFeed'
 import MiniMap from '@/components/dashboard/MiniMap'
 import IntelligenceBrief from '@/components/dashboard/IntelligenceBrief'
+import SettingsPanel from '@/components/SettingsPanel'
 import { useDashboardWs } from '@/hooks/useWebSocket'
 import { useDemoMode } from '@/hooks/useDemoMode'
+import { useSettings } from '@/hooks/useSettings'
 
-export default function DashboardPage() {
+type DemoScenario = 'restaurant' | 'building' | 'construction'
+
+function DashboardContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
   const ws = useDashboardWs()
   const demo = useDemoMode()
+  const settings = useSettings()
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)
+  const [voiceMode, setVoiceMode] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+
+  const handleRunDemo = useCallback((scenario: 'all' | 'restaurant' | 'building' | 'construction') => {
+    if (scenario === 'all') {
+      demo.runDemo('restaurant')
+      setTimeout(() => demo.runDemo('building'), 12_000)
+      setTimeout(() => demo.runDemo('construction'), 24_000)
+    } else {
+      demo.runDemo(scenario)
+    }
+  }, [demo])
 
   // Use WS data when backend is connected, demo data when not
   const isLive = ws.isConnected
@@ -23,6 +45,54 @@ export default function DashboardPage() {
   const handleSendQuery = useCallback((text: string) => {
     ws.sendQuery(uploadedImage, text)
   }, [ws, uploadedImage])
+
+  // ─── Query param handling ────────────────────────────────────────────────────
+
+  useEffect(() => {
+    const q = searchParams.get('q')
+    const location = searchParams.get('location')
+    const demoParam = searchParams.get('demo')
+    const voice = searchParams.get('voice')
+
+    if (!q && !demoParam && !voice) return
+
+    // Voice mode placeholder
+    if (voice === 'true') {
+      setVoiceMode(true)
+      console.log('Voice mode activated')
+    }
+
+    // Auto-submit text query after short delay for WS to connect
+    if (q) {
+      const queryText = location ? `${location}: ${q}` : q
+      const timer = setTimeout(() => {
+        handleSendQuery(queryText)
+        router.replace('/dashboard', { scroll: false })
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+
+    // Auto-trigger demo mode
+    if (demoParam) {
+      const validScenarios: DemoScenario[] = ['restaurant', 'building', 'construction']
+      const timers: ReturnType<typeof setTimeout>[] = []
+
+      if (demoParam === 'all') {
+        timers.push(setTimeout(() => demo.runDemo('restaurant'), 0))
+        timers.push(setTimeout(() => demo.runDemo('building'), 12_000))
+        timers.push(setTimeout(() => demo.runDemo('construction'), 24_000))
+      } else if (validScenarios.includes(demoParam as DemoScenario)) {
+        timers.push(setTimeout(() => demo.runDemo(demoParam as DemoScenario), 0))
+      }
+
+      router.replace('/dashboard', { scroll: false })
+      return () => timers.forEach(clearTimeout)
+    }
+
+    // Clean URL if only voice param was set
+    router.replace('/dashboard', { scroll: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -41,6 +111,14 @@ export default function DashboardPage() {
               <div className="w-px h-3 bg-border"/>
               <span className="font-mono text-[8px] tracking-[0.1em] text-dim">
                 SESSION {ws.sessionId}
+              </span>
+            </>
+          )}
+          {voiceMode && (
+            <>
+              <div className="w-px h-3 bg-border"/>
+              <span className="font-mono text-[8px] tracking-[0.1em] text-green">
+                VOICE MODE
               </span>
             </>
           )}
@@ -64,6 +142,12 @@ export default function DashboardPage() {
               </button>
             </div>
           )}
+          <button
+            onClick={() => setShowSettings(true)}
+            className={`${isLive ? 'ml-auto' : ''} w-5 h-5 flex items-center justify-center rounded hover:bg-silver-mist/10 transition-colors`}
+          >
+            <Settings className="w-3 h-3 text-silver-mist/40 hover:text-silver-mist/70" />
+          </button>
         </div>
 
         {/* Camera feed */}
@@ -84,6 +168,17 @@ export default function DashboardPage() {
         />
       </div>
 
+      {/* Settings panel */}
+      <SettingsPanel
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        onRunDemo={handleRunDemo}
+        onVolumeChange={settings.setVolume}
+        onMuteChange={settings.setMuted}
+        volume={settings.volume}
+        muted={settings.muted}
+      />
+
       {/* Right panel */}
       <IntelligenceBrief
         agentState={agentState}
@@ -98,5 +193,13 @@ export default function DashboardPage() {
         sessionSummary={ws.sessionSummary}
       />
     </div>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardContent />
+    </Suspense>
   )
 }

@@ -5,12 +5,16 @@ import { motion } from 'framer-motion';
 import { Compass, BarChart3, Clock, Settings, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export default function Sidebar() {
+interface SidebarProps {
+    onSettingsClick?: () => void
+}
+
+export default function Sidebar({ onSettingsClick }: SidebarProps) {
     const items = [
         { icon: <Compass className="w-5 h-5" />, label: 'Explore', active: true },
         { icon: <BarChart3 className="w-5 h-5" />, label: 'Analysis' },
         { icon: <Clock className="w-5 h-5" />, label: 'History' },
-        { icon: <Settings className="w-5 h-5" />, label: 'Settings' },
+        { icon: <Settings className="w-5 h-5" />, label: 'Settings', onClick: onSettingsClick },
     ];
 
     return (
@@ -26,6 +30,7 @@ export default function Sidebar() {
                 {items.map((item, i) => (
                     <button
                         key={i}
+                        onClick={item.onClick}
                         className={cn(
                             "flex flex-col items-center gap-2 group transition-all relative px-4",
                             item.active ? "text-electric-cyan font-bold" : "text-white/40 hover:text-white/80"
